@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, useScroll, useTransform } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -27,6 +28,7 @@ export default function Page() {
     container: scrollContainerRef,
   });
   const headerOpacity = useTransform(scrollYProgress, [0, 0.1], [0.95, 1]);
+  const router = useRouter();
   const [isDragging, setIsDragging] = useState(false);
   const [thumbVisible, setThumbVisible] = useState(false);
   const dragStartYRef = useRef(0);
@@ -160,6 +162,16 @@ export default function Page() {
     }
   };
 
+  const goToLogin = () => {
+    setIsMenuOpen(false);
+    router.push('/auth/login');
+  };
+
+  const goToSignup = () => {
+    setIsMenuOpen(false);
+    router.push('/auth/signup');
+  };
+
   return (
     <div className="min-h-screen bg-white relative">
       <div
@@ -192,8 +204,8 @@ export default function Page() {
             </nav>
 
             <div className="hidden md:flex items-center gap-3">
-              <Button variant="ghost">ログイン</Button>
-              <Button className="bg-[#c2255d] hover:bg-[#a01d4d] text-white">
+              <Button variant="ghost" onClick={goToLogin}>ログイン</Button>
+              <Button className="bg-[#c2255d] hover:bg-[#a01d4d] text-white" onClick={goToSignup}>
                 無料で始める
               </Button>
             </div>
@@ -231,8 +243,10 @@ export default function Page() {
                   機能
                 </button>
                 <div className="pt-4 border-t border-gray-100 space-y-2">
-                  <Button variant="outline" className="w-full">ログイン</Button>
-                  <Button className="w-full bg-[#c2255d] hover:bg-[#a01d4d] text-white">
+                  <Button variant="outline" className="w-full" onClick={goToLogin}>
+                    ログイン
+                  </Button>
+                  <Button className="w-full bg-[#c2255d] hover:bg-[#a01d4d] text-white" onClick={goToSignup}>
                     無料で始める
                   </Button>
                 </div>
@@ -270,6 +284,7 @@ export default function Page() {
                 <Button 
                   size="lg" 
                   className="bg-[#c2255d] hover:bg-[#a01d4d] text-white group"
+                  onClick={goToSignup}
                 >
                   無料で始める
                   <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -381,7 +396,7 @@ export default function Page() {
                     height={400}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-gray-900/40 to-transparent rounded-2xl" />
-                  <Card className="absolute bottom-6 left-6 right-6 p-4 bg-white/95 backdrop-blur-sm border-0 shadow-lg">
+                  <Card className="absolute bottom-6 left-6 right-6 p-4 bg-white/85 backdrop-blur-sm border-0 shadow-lg">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-gray-600">記憶定着率</span>
                       <span className="text-sm text-gray-900">+87%</span>
@@ -411,14 +426,14 @@ export default function Page() {
               <div>
                 <div className="relative">
                   <ImageWithFallback 
-                    src="https://images.unsplash.com/photo-1660165458059-57cfb6cc87e5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZWNobm9sb2d5JTIwYWJzdHJhY3QlMjBhaXxlbnwxfHx8fDE3NjI4NjA0NDN8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral" 
-                    alt="AI and technology"
-                    className="w-full h-[400px] object-cover rounded-2xl shadow-xl"
+                    src="/ai-personalization.png" 
+                    alt="AI personalization concept artwork"
+                    className="w-full h-[400px] object-cover object-bottom rounded-2xl shadow-xl"
                     width={1080}
                     height={400}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-gray-900/40 to-transparent rounded-2xl" />
-                  <Card className="absolute bottom-6 left-6 right-6 p-4 bg-white/95 backdrop-blur-sm border-0 shadow-lg">
+                  <Card className="absolute bottom-6 left-6 right-6 p-4 bg-white/85 backdrop-blur-sm border-0 shadow-lg">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center flex-shrink-0">
                         <Sparkles className="w-5 h-5 text-white" />
@@ -507,7 +522,7 @@ export default function Page() {
                     height={400}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-gray-900/40 to-transparent rounded-2xl" />
-                  <Card className="absolute bottom-6 left-6 right-6 p-4 bg-white/95 backdrop-blur-sm border-0 shadow-lg">
+                  <Card className="absolute bottom-6 left-6 right-6 p-4 bg-white/100 backdrop-blur-sm border-0 shadow-lg">
                     <div className="flex items-center gap-4">
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-2">
@@ -836,6 +851,7 @@ export default function Page() {
               <Button 
                 size="lg" 
                 className="bg-[#c2255d] hover:bg-[#a01d4d] text-white group"
+                onClick={goToSignup}
               >
                 無料で始める
                 <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
