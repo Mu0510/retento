@@ -434,7 +434,7 @@ export default function Page() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-gray-900/40 to-transparent rounded-2xl" />
                   <Card className="absolute bottom-6 left-6 right-6 p-4 bg-white/85 backdrop-blur-sm border-0 shadow-lg">
-                    <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center flex-shrink-0">
                         <Sparkles className="w-5 h-5 text-white" />
                       </div>
@@ -765,25 +765,25 @@ export default function Page() {
                     </div>
                     <div className="bg-white rounded-lg p-6 border border-gray-200 space-y-4">
                       <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 border border-gray-100">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-sm text-gray-900">1</div>
-                          <span className="text-gray-900">さくらんぼ</span>
+                          <div className="flex items-center gap-4">
+                          <div className="w-8 h-8 rounded-full border-[1.5px] border-[#c2255d] flex items-center justify-center text-base text-[#c2255d]">1</div>
+                          <span className="text-gray-900">田中 太郎</span>
                         </div>
-                        <span className="text-gray-600">9,850点</span>
+                        <span className="text-gray-600">9,850</span>
                       </div>
                       <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 border border-gray-100">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center text-sm text-gray-900">2</div>
-                          <span className="text-gray-900">くろまる</span>
+                          <div className="flex items-center gap-4">
+                          <div className="w-8 h-8 rounded-full border-[1.5px] border-[#c2255d] flex items-center justify-center text-base text-[#c2255d]">2</div>
+                          <span className="text-gray-900">佐藤 花子</span>
                         </div>
-                        <span className="text-gray-600">9,720点</span>
+                        <span className="text-gray-600">9,720</span>
                       </div>
                       <div className="flex items-center justify-between p-4 rounded-lg bg-[#fff1f4] border border-[#f2b8c7]">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-sm text-gray-900">3</div>
+                          <div className="w-8 h-8 rounded-full border-[1.5px] border-[#c2255d] flex items-center justify-center text-base text-[#c2255d]">3</div>
                           <span className="text-gray-900">あなた</span>
                         </div>
-                        <span className="text-gray-900">9,680点</span>
+                        <span className="text-gray-900">9,680</span>
                       </div>
                     </div>
                     <div className="text-center text-sm text-gray-500">
@@ -840,7 +840,7 @@ export default function Page() {
               今すぐRetentoで<br className="sm:hidden" />学習を始めよう
             </h2>
             <p className="text-lg sm:text-xl text-white/80 mb-8 max-w-2xl mx-auto">
-              科学とAIが融合した次世代の英単語学習体験を、無料で体験できます
+              最高の英単語学習体験を無料でお試しいただけます
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button 
@@ -876,7 +876,7 @@ export default function Page() {
                   <span className="text-xl tracking-tight">Retento</span>
                 </div>
                 <p className="text-sm text-gray-600">
-                  科学とAIが融合した次世代の英単語学習体験
+                大学受験向け英単語学習アプリ
                 </p>
               </div>
               <div>
