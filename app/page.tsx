@@ -37,6 +37,11 @@ export default function Page() {
   const pointerTargetRef = useRef<HTMLElement | null>(null);
   const topOffset = 67;
   const bottomOffset = 3;
+  const rankingRows = [
+    { rank: 1, name: '田中 太郎', score: '9,850' },
+    { rank: 2, name: '佐藤 花子', score: '9,720' },
+    { rank: 3, name: 'あなた', score: '9,680', highlight: true },
+  ];
   const thumbRef = useRef<HTMLDivElement | null>(null);
   const thumbMetricsRef = useRef({ height: 0, top: 0 });
 
@@ -755,38 +760,50 @@ export default function Page() {
               className="grid lg:grid-cols-2 gap-12 items-center"
             >
               <div>
-                <Card className="p-8 border-0 shadow-xl bg-gradient-to-br from-gray-50 to-white">
-                  <div className="space-y-6">
-                    <div className="bg-white rounded-lg p-6 border border-gray-200 text-center space-y-2">
-                      <div className="inline-block px-6 py-2 rounded-full bg-gray-100 mb-2">
-                        <span className="text-4xl text-gray-800">S+</span>
-                      </div>
-                      <p className="text-sm text-gray-500">あなたのランク</p>
+                <Card className="rounded-[32px] border border-gray-200 bg-white p-8 shadow-sm">
+                  <div className="space-y-5">
+                    <div className="flex items-center justify-between text-[0.65rem] font-bold uppercase tracking-[0.35em] text-gray-500">
+                      <span>Ranking</span>
+                      <span className="rounded-full bg-gray-100 px-4 py-1 text-[0.55rem] tracking-[0.4em] text-gray-900">
+                        週間
+                      </span>
                     </div>
-                    <div className="bg-white rounded-lg p-6 border border-gray-200 space-y-4">
-                      <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 border border-gray-100">
-                          <div className="flex items-center gap-4">
-                          <div className="w-8 h-8 rounded-full border-[1.5px] border-[#c2255d] flex items-center justify-center text-base text-[#c2255d]">1</div>
-                          <span className="text-gray-900">田中 太郎</span>
-                        </div>
-                        <span className="text-gray-600">9,850</span>
-                      </div>
-                      <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 border border-gray-100">
-                          <div className="flex items-center gap-4">
-                          <div className="w-8 h-8 rounded-full border-[1.5px] border-[#c2255d] flex items-center justify-center text-base text-[#c2255d]">2</div>
-                          <span className="text-gray-900">佐藤 花子</span>
-                        </div>
-                        <span className="text-gray-600">9,720</span>
-                      </div>
-                      <div className="flex items-center justify-between p-4 rounded-lg bg-[#fff1f4] border border-[#f2b8c7]">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full border-[1.5px] border-[#c2255d] flex items-center justify-center text-base text-[#c2255d]">3</div>
-                          <span className="text-gray-900">あなた</span>
-                        </div>
-                        <span className="text-gray-900">9,680</span>
+                    <div className="flex items-center gap-4">
+                      <div className="text-[3rem] font-black tracking-tight text-gray-900">S+</div>
+                      <div>
+                        <p className="text-sm text-gray-500">あなたのランク</p>
+                        <p className="text-base font-semibold text-gray-900">絶対評価</p>
                       </div>
                     </div>
-                    <div className="text-center text-sm text-gray-500">
+                    <div className="rounded-2xl border border-gray-100 bg-gray-50">
+                      <div className="divide-y divide-gray-100">
+                        {rankingRows.map((row) => (
+                          <div
+                            key={row.rank}
+                            className={`flex items-center justify-between gap-3 px-4 py-3 transition ${
+                              row.highlight
+                                ? 'bg-[#fff4f6] text-gray-900'
+                                : 'bg-white hover:bg-white/70'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`flex h-10 w-10 items-center justify-center rounded-2xl border text-sm font-semibold ${
+                                  row.highlight
+                                    ? 'border-[#ffccd8] bg-white text-[#c2255d]'
+                                    : 'border-gray-200 bg-white text-gray-600'
+                                }`}
+                              >
+                                {row.rank}
+                              </div>
+                              <span className="text-sm font-medium text-gray-900">{row.name}</span>
+                            </div>
+                            <span className="text-sm font-semibold text-gray-800">{row.score}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="text-xs font-semibold tracking-[0.3em] text-gray-500">
                       上位 5% • 週間ランキング
                     </div>
                   </div>
