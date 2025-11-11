@@ -27,6 +27,16 @@ export default function Page() {
     container: scrollContainerRef,
   });
   const headerOpacity = useTransform(scrollYProgress, [0, 0.1], [0.95, 1]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [thumbVisible, setThumbVisible] = useState(false);
+  const dragStartYRef = useRef(0);
+  const scrollStartRef = useRef(0);
+  const pointerIdRef = useRef<number | null>(null);
+  const pointerTargetRef = useRef<HTMLElement | null>(null);
+  const topOffset = 67;
+  const bottomOffset = 3;
+  const thumbRef = useRef<HTMLDivElement | null>(null);
+  const thumbMetricsRef = useRef({ height: 0, top: 0 });
 
   useEffect(() => {
     const originalBodyOverflow = document.body.style.overflow;
@@ -41,6 +51,107 @@ export default function Page() {
     };
   }, []);
 
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const updateThumb = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      if (scrollHeight <= clientHeight) {
+        thumbMetricsRef.current = { height: 0, top: 0 };
+        setThumbVisible(false);
+        if (thumbRef.current) {
+          thumbRef.current.style.height = "0px";
+          thumbRef.current.style.transform = "translate3d(0, 0, 0)";
+        }
+        return;
+      }
+      const trackHeight = Math.max(clientHeight - topOffset - bottomOffset, 0);
+      const rawHeight = (clientHeight / scrollHeight) * trackHeight;
+      const thumbSize = Math.max(rawHeight, 48);
+      const maxThumbTop = trackHeight - thumbSize;
+      const progress = scrollTop / (scrollHeight - clientHeight);
+      const targetTop = Math.min(maxThumbTop, progress * maxThumbTop);
+      thumbMetricsRef.current = { height: thumbSize, top: targetTop };
+      setThumbVisible(true);
+      if (thumbRef.current) {
+        thumbRef.current.style.height = `${thumbSize}px`;
+        thumbRef.current.style.transform = `translate3d(0, ${targetTop}px, 0)`;
+      }
+    };
+
+    const handleScroll = () => {
+      updateThumb();
+      if (rafRef.current !== null) return;
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        updateThumb();
+      });
+    };
+
+    const handleResize = () => {
+      updateThumb();
+    };
+
+    handleScroll();
+    container.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleResize);
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [scrollContainerRef, topOffset, bottomOffset]);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!isDragging) return;
+      const thumbHeightValue = thumbMetricsRef.current.height;
+      const trackHeight = Math.max(container.clientHeight - topOffset - bottomOffset - thumbHeightValue, 0);
+      if (trackHeight <= 0) return;
+      const deltaY = event.clientY - dragStartYRef.current;
+      const scrollableHeight = container.scrollHeight - container.clientHeight;
+      const thumbDeltaPercent = deltaY / trackHeight;
+      const nextScrollTop = Math.min(
+        scrollableHeight,
+        Math.max(0, scrollStartRef.current + thumbDeltaPercent * scrollableHeight),
+      );
+      container.scrollTop = nextScrollTop;
+      dragStartYRef.current = event.clientY;
+      scrollStartRef.current = nextScrollTop;
+      dragStartYRef.current = event.clientY;
+      scrollStartRef.current = nextScrollTop;
+    };
+
+    const handlePointerUp = () => {
+      if (isDragging) {
+        setIsDragging(false);
+        if (pointerIdRef.current !== null) {
+          pointerTargetRef.current?.releasePointerCapture(pointerIdRef.current);
+          pointerIdRef.current = null;
+          pointerTargetRef.current = null;
+        }
+      }
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [isDragging, topOffset, bottomOffset]);
+
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
@@ -50,17 +161,18 @@ export default function Page() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white relative">
       <div
         ref={scrollContainerRef}
-        className="scroll-wrapper relative h-screen w-full overflow-y-auto scroll-smooth"
+        className="scroll-wrapper h-screen w-full overflow-y-auto scroll-smooth"
       >
+        <div className="mx-auto w-[90vw] max-w-[1600px] px-4 sm:px-6 lg:px-8">
       {/* Header */}
       <motion.header 
         style={{ opacity: headerOpacity }}
         className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100"
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-16 2xl:px-20">
+        <div className="mx-auto w-[90vw] max-w-[1600px] px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center">
@@ -104,34 +216,37 @@ export default function Page() {
             exit={{ opacity: 0, y: -20 }}
             className="md:hidden absolute top-16 left-0 right-0 bg-white border-b border-gray-100 shadow-lg"
           >
-            <div className="px-4 py-6 space-y-4">
-              <button 
-                onClick={() => scrollToSection('concept')} 
-                className="block w-full text-left px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
-              >
-                コンセプト
-              </button>
-              <button 
-                onClick={() => scrollToSection('features')} 
-                className="block w-full text-left px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
-              >
-                機能
-              </button>
-              <div className="pt-4 border-t border-gray-100 space-y-2">
-                <Button variant="outline" className="w-full">ログイン</Button>
-                <Button className="w-full bg-[#c2255d] hover:bg-[#a01d4d] text-white">
-                  無料で始める
-                </Button>
+            <div className="mx-auto w-[90vw] max-w-[1600px] px-4 sm:px-6 lg:px-8">
+              <div className="py-6 space-y-4">
+                <button
+                  onClick={() => scrollToSection('concept')}
+                  className="block w-full text-left px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  コンセプト
+                </button>
+                <button
+                  onClick={() => scrollToSection('features')}
+                  className="block w-full text-left px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  機能
+                </button>
+                <div className="pt-4 border-t border-gray-100 space-y-2">
+                  <Button variant="outline" className="w-full">ログイン</Button>
+                  <Button className="w-full bg-[#c2255d] hover:bg-[#a01d4d] text-white">
+                    無料で始める
+                  </Button>
+                </div>
               </div>
             </div>
           </motion.div>
         )}
-      </motion.header>
+        </motion.header>
+        </div>
 
       {/* Hero Section */}
       <section className="relative pt-24 sm:pt-32 pb-16 sm:pb-24 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-gray-50/50 to-white -z-10" />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-16 2xl:px-20">
+        <div className="mx-auto w-[90vw] max-w-[1600px] px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -182,7 +297,7 @@ export default function Page() {
                   </div>
                   <div className="bg-white rounded-lg p-6 border border-gray-200">
                     <p className="text-gray-700 mb-6">
-                      The scientist's research was <span className="border-b-2 border-[#c2255d]">comprehensive</span> and well-documented.
+                      The scientist&rsquo;s research was <span className="border-b-2 border-[#c2255d]">comprehensive</span> and well-documented.
                     </p>
                     <div className="space-y-3">
                       {['包括的な', '競争的な', '複雑な', '比較的な'].map((option, i) => (
@@ -205,7 +320,7 @@ export default function Page() {
 
       {/* Core Concept Section */}
       <section id="concept" className="py-16 sm:py-24 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-16 2xl:px-20">
+        <div className="mx-auto w-[90vw] max-w-[1600px] px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -262,6 +377,8 @@ export default function Page() {
                     src="/memory-science.png" 
                     alt="Neuroscience and learning"
                     className="w-full h-[400px] object-cover rounded-2xl shadow-xl"
+                    width={1080}
+                    height={400}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-gray-900/40 to-transparent rounded-2xl" />
                   <Card className="absolute bottom-6 left-6 right-6 p-4 bg-white/95 backdrop-blur-sm border-0 shadow-lg">
@@ -297,6 +414,8 @@ export default function Page() {
                     src="https://images.unsplash.com/photo-1660165458059-57cfb6cc87e5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZWNobm9sb2d5JTIwYWJzdHJhY3QlMjBhaXxlbnwxfHx8fDE3NjI4NjA0NDN8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral" 
                     alt="AI and technology"
                     className="w-full h-[400px] object-cover rounded-2xl shadow-xl"
+                    width={1080}
+                    height={400}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-gray-900/40 to-transparent rounded-2xl" />
                   <Card className="absolute bottom-6 left-6 right-6 p-4 bg-white/95 backdrop-blur-sm border-0 shadow-lg">
@@ -384,6 +503,8 @@ export default function Page() {
                     src="https://images.unsplash.com/photo-1606299420579-baacab12fede?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbGVnYW50JTIwbWluaW1hbCUyMHdvcmtzcGFjZXxlbnwxfHx8fDE3NjI4NjA0NDN8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral" 
                     alt="Elegant minimal design"
                     className="w-full h-[400px] object-cover rounded-2xl shadow-xl"
+                    width={1080}
+                    height={400}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-gray-900/40 to-transparent rounded-2xl" />
                   <Card className="absolute bottom-6 left-6 right-6 p-4 bg-white/95 backdrop-blur-sm border-0 shadow-lg">
@@ -410,7 +531,7 @@ export default function Page() {
 
       {/* UX Design Features */}
       <section id="features" className="py-16 sm:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-16 2xl:px-20">
+        <div className="mx-auto w-[90vw] max-w-[1600px] px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -472,7 +593,7 @@ export default function Page() {
                     </div>
                     <div className="bg-white rounded-lg p-6 border border-gray-200">
                       <p className="text-gray-700 mb-6">
-                        The scientist's research was <span className="border-b-2 border-[#c2255d]">comprehensive</span> and well-documented.
+                        The scientist&rsquo;s research was <span className="border-b-2 border-[#c2255d]">comprehensive</span> and well-documented.
                       </p>
                       <div className="space-y-3">
                         {['包括的な', '競争的な', '複雑な', '比較的な'].map((option, i) => (
@@ -601,6 +722,8 @@ export default function Page() {
                     src="https://images.unsplash.com/photo-1719550371336-7bb64b5cacfa?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxicmFpbiUyMG5ldXJhbCUyMG5ldHdvcmt8ZW58MXx8fHwxNzYyNzcxNTY0fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral" 
                     alt="AI Neural Network"
                     className="w-full h-[400px] object-cover rounded-2xl shadow-xl"
+                    width={1080}
+                    height={400}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-gray-900/40 to-transparent rounded-2xl" />
                   <div className="absolute bottom-6 left-6 right-6">
@@ -731,49 +854,73 @@ export default function Page() {
 
       {/* Footer */}
       <footer className="bg-gray-50 border-t border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-16 2xl:px-20 py-12">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center">
-                  <span className="text-white">R</span>
+        <div className="w-full py-12">
+          <div className="mx-auto w-[90vw] max-w-[1600px] px-4 sm:px-6 lg:px-8">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center">
+                    <span className="text-white">R</span>
+                  </div>
+                  <span className="text-xl tracking-tight">Retento</span>
                 </div>
-                <span className="text-xl tracking-tight">Retento</span>
+                <p className="text-sm text-gray-600">
+                  科学とAIが融合した次世代の英単語学習体験
+                </p>
               </div>
-              <p className="text-sm text-gray-600">
-                科学とAIが融合した次世代の英単語学習体験
-              </p>
+              <div>
+                <h4 className="mb-4 text-gray-900">プロダクト</h4>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li><button onClick={() => scrollToSection('concept')} className="hover:text-gray-900">コンセプト</button></li>
+                  <li><button onClick={() => scrollToSection('features')} className="hover:text-gray-900">機能</button></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="mb-4 text-gray-900">サポート</h4>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li><a href="#" className="hover:text-gray-900">ヘルプセンター</a></li>
+                  <li><a href="#" className="hover:text-gray-900">よくある質問</a></li>
+                  <li><a href="#" className="hover:text-gray-900">お問い合わせ</a></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="mb-4 text-gray-900">法務</h4>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li><a href="#" className="hover:text-gray-900">利用規約</a></li>
+                  <li><a href="#" className="hover:text-gray-900">プライバシーポリシー</a></li>
+                  <li><a href="#" className="hover:text-gray-900">特定商取引法に基づく表記</a></li>
+                </ul>
+              </div>
             </div>
-            <div>
-              <h4 className="mb-4 text-gray-900">プロダクト</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li><button onClick={() => scrollToSection('concept')} className="hover:text-gray-900">コンセプト</button></li>
-                <li><button onClick={() => scrollToSection('features')} className="hover:text-gray-900">機能</button></li>
-              </ul>
+            <div className="pt-8 border-t border-gray-200 text-center text-sm text-gray-600">
+              <p>© 2025 Retento. All rights reserved.</p>
             </div>
-            <div>
-              <h4 className="mb-4 text-gray-900">サポート</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li><a href="#" className="hover:text-gray-900">ヘルプセンター</a></li>
-                <li><a href="#" className="hover:text-gray-900">よくある質問</a></li>
-                <li><a href="#" className="hover:text-gray-900">お問い合わせ</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="mb-4 text-gray-900">法務</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li><a href="#" className="hover:text-gray-900">利用規約</a></li>
-                <li><a href="#" className="hover:text-gray-900">プライバシーポリシー</a></li>
-                <li><a href="#" className="hover:text-gray-900">特定商取引法に基づく表記</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="pt-8 border-t border-gray-200 text-center text-sm text-gray-600">
-            <p>© 2025 Retento. All rights reserved.</p>
           </div>
         </div>
       </footer>
     </div>
+    {/* Custom scrollbar overlay */}
+    <div
+      className="fixed z-30 flex items-start justify-center"
+      style={{ top: "calc(4rem + 3px)", right: "3px", bottom: "3px" }}
+    >
+    {thumbVisible && (
+      <div
+        ref={thumbRef}
+        className={`w-1.5 cursor-default rounded-full bg-gray-400/70 backdrop-blur-2xl shadow-[0_0_12px_rgba(0,0,0,0.15)] transition-opacity duration-150 ${isDragging ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
+        style={{ transform: 'translate3d(0, 0, 0)', height: '0px' }}
+        onPointerDown={(event) => {
+          event.preventDefault();
+          setIsDragging(true);
+          dragStartYRef.current = event.clientY;
+          scrollStartRef.current = scrollContainerRef.current?.scrollTop ?? 0;
+          pointerIdRef.current = event.pointerId;
+          pointerTargetRef.current = event.target as HTMLElement;
+          pointerTargetRef.current?.setPointerCapture(event.pointerId);
+        }}
+      />
+    )}
+    </div>
   </div>
-  );
+);
 }
