@@ -391,7 +391,7 @@ export default function Page() {
                   <ImageWithFallback 
                     src="/memory-science.png" 
                     alt="Neuroscience and learning"
-                    className="w-full h-[400px] object-cover rounded-2xl shadow-xl"
+                    className="w-full h-[340px] object-cover object-bottom rounded-2xl shadow-xl"
                     width={1080}
                     height={400}
                   />
@@ -428,7 +428,7 @@ export default function Page() {
                   <ImageWithFallback 
                     src="/ai-personalization.png" 
                     alt="AI personalization concept artwork"
-                    className="w-full h-[400px] object-cover object-bottom rounded-2xl shadow-xl"
+                    className="w-full h-[340px] object-cover object-bottom rounded-2xl shadow-xl"
                     width={1080}
                     height={400}
                   />
@@ -449,13 +449,13 @@ export default function Page() {
               <div>
                 <Badge variant="secondary" className="mb-4 bg-gray-100">
                   <Sparkles className="w-3 h-3 mr-1" />
-                  AIパーソナライゼーション
+                  生成AI活用
                 </Badge>
                 <h3 className="text-2xl sm:text-3xl tracking-tight mb-4">
-                  一人ひとりに最適化さた学習体験
+                  深い学びと実用性を両立
                 </h3>
                 <p className="text-gray-600 mb-6 leading-relaxed">
-                  最新のAI技術が、あなたの学習を個別最適化。単語ごとに語源、類義語比較、記憶術をリアルタイムで生成し、深い理解を促進します。
+                  問題や解説は全てAIが作成。同じ問題が出題されることはありません。例文中で単語の意味を類推するという形式は、共通テスト等での出題を意識しています。
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-start gap-3">
@@ -464,11 +464,11 @@ export default function Page() {
                   </li>
                   <li className="flex items-start gap-3">
                     <CheckCircle2 className="w-5 h-5 text-[#c2255d] mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">ベクトル埋め込みで関連単語を自動グループ化</span>
+                    <span className="text-gray-700">テーマ別セッションで文脈的な学習を実現</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <CheckCircle2 className="w-5 h-5 text-[#c2255d] mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">テーマ別セッションで文脈的な学習を実現</span>
+                    <span className="text-gray-700">実際のテストに即した単語力育成</span>
                   </li>
                 </ul>
               </div>
@@ -515,14 +515,14 @@ export default function Page() {
               <div className="order-1 lg:order-2">
                 <div className="relative">
                   <ImageWithFallback 
-                    src="https://images.unsplash.com/photo-1606299420579-baacab12fede?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbGVnYW50JTIwbWluaW1hbCUyMHdvcmtzcGFjZXxlbnwxfHx8fDE3NjI4NjA0NDN8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral" 
-                    alt="Elegant minimal design"
-                    className="w-full h-[400px] object-cover rounded-2xl shadow-xl"
+                    src="/hero-ux-2025.png" 
+                    alt="学習の抵抗感をゼロにするデザイン"
+                    className="w-full h-[380px] object-cover object-[center_95%] rounded-2xl shadow-xl"
                     width={1080}
                     height={400}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-gray-900/40 to-transparent rounded-2xl" />
-                  <Card className="absolute bottom-6 left-6 right-6 p-4 bg-white/100 backdrop-blur-sm border-0 shadow-lg">
+                  <Card className="absolute bottom-6 left-6 right-6 p-4 bg-white/85 backdrop-blur-sm border-0 shadow-lg">
                     <div className="flex items-center gap-4">
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-2">
@@ -531,7 +531,7 @@ export default function Page() {
                         </div>
                         <div className="flex gap-1">
                           {[...Array(7)].map((_, i) => (
-                            <div key={i} className={`w-6 h-6 rounded ${i < 6 ? 'bg-[#c2255d]' : 'bg-gray-200'}`} />
+                            <div key={i} className={`w-6 h-6 rounded ${i < 6 ? 'bg-[#27282e]/85' : 'bg-gray-400/85'}`} />
                           ))}
                         </div>
                       </div>
@@ -577,7 +577,7 @@ export default function Page() {
                   即座に学習開始
                 </Badge>
                 <h3 className="text-2xl sm:text-3xl tracking-tight mb-4">
-                  問題画面：学習への抵抗感をゼロに
+                  学習を邪魔するノイズをゼロに
                 </h3>
                 <p className="text-gray-600 mb-6 leading-relaxed">
                   アプリを開いた瞬間から学習が始まる。メニューを経由せず、即座に問題が表示されるデフォルト設計。スマホでは縦積み、PCでは左右分割レイアウトで、デバイスに最適化された体験を提供します。
@@ -649,21 +649,16 @@ export default function Page() {
                       </div>
                     </div>
                     <div className="bg-white rounded-lg p-6 border border-gray-200">
-                      <div className="flex items-start gap-3 mb-4">
+                      <div className="flex items-start gap-3 mb-1">
                         <Sparkles className="w-5 h-5 text-[#c2255d] mt-0.5 flex-shrink-0" />
                         <div>
                           <p className="text-sm mb-2">
-                            <span className="text-gray-900">語源:</span> ラテン語 comprehendere (完全に理解する)
+                            <span className="text-gray-900">正解について</span>
                           </p>
                           <p className="text-sm text-gray-600">
-                            すべてを包み込む(com-)ように理解する(prehendere)イメージ
+                          「comprehensive」は「包括的な」という意味です。語源はラテン語の com-（共に）と prehendere（つかむ）で、「すべてを一緒につかむ」、つまり「全体を漏れなく理解する」イメージです。
                           </p>
                         </div>
-                      </div>
-                      <div className="flex gap-2 mt-4">
-                        <Badge variant="outline" className="text-xs">完璧</Badge>
-                        <Badge variant="outline" className="text-xs">もう一回</Badge>
-                        <Badge variant="outline" className="text-xs">自信ない</Badge>
                       </div>
                     </div>
                   </div>
@@ -675,10 +670,10 @@ export default function Page() {
                   洗練されたフィードバック
                 </Badge>
                 <h3 className="text-2xl sm:text-3xl tracking-tight mb-4">
-                  フィードバック画面：色で示す、静かな正誤判定
+                  色で示す、静かな正誤判定
                 </h3>
                 <p className="text-gray-600 mb-6 leading-relaxed">
-                  回答後、選択肢の背景色が薄い緑（正解）または薄い赤（不正解）に変化。○や✕といった記号、派手なアニメーションは一切使わず、洗練された静的なフィードバックで学習のテンポを維持します。
+                  回答後、選択肢の背景色が緑（正解）または赤（不正解）に変化。派手なアニメーションは一切使わず、洗練された静かなフィードバックで学習のテンポを維持します。
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-start gap-3">
@@ -711,7 +706,7 @@ export default function Page() {
                   テーマ別学習
                 </Badge>
                 <h3 className="text-2xl sm:text-3xl tracking-tight mb-4">
-                  テーマ別セッション：関連単語で深い学びを
+                  関連単語で深い学びを
                 </h3>
                 <p className="text-gray-600 mb-6 leading-relaxed">
                   1セッション5問は、類義語、語源、カテゴリなど、関連性の高い単語でグループ化。セッション終了後、AIがテーマ全体を踏まえた総合フィードバックを生成し、学習の文脈を明確にします。
@@ -723,7 +718,7 @@ export default function Page() {
                   </li>
                   <li className="flex items-start gap-3">
                     <CheckCircle2 className="w-5 h-5 text-[#c2255d] mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">深夜バッチ処理による事前生成で、待ち時間ゼロ</span>
+                    <span className="text-gray-700">バックグラウンド処理による事前生成で、待ち時間ゼロ</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <CheckCircle2 className="w-5 h-5 text-[#c2255d] mt-0.5 flex-shrink-0" />
@@ -736,7 +731,7 @@ export default function Page() {
                   <ImageWithFallback 
                     src="https://images.unsplash.com/photo-1719550371336-7bb64b5cacfa?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxicmFpbiUyMG5ldXJhbCUyMG5ldHdvcmt8ZW58MXx8fHwxNzYyNzcxNTY0fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral" 
                     alt="AI Neural Network"
-                    className="w-full h-[400px] object-cover rounded-2xl shadow-xl"
+                    className="w-full h-[340px] object-cover rounded-2xl shadow-xl"
                     width={1080}
                     height={400}
                   />
@@ -760,38 +755,38 @@ export default function Page() {
               className="grid lg:grid-cols-2 gap-12 items-center"
             >
               <div>
-                <Card className="p-8 border-0 shadow-xl bg-gradient-to-br from-gray-900 to-gray-800 text-white">
+                <Card className="p-8 border-0 shadow-xl bg-gradient-to-br from-gray-50 to-white">
                   <div className="space-y-6">
-                    <div className="text-center">
-                      <div className="inline-block px-6 py-2 rounded-full bg-white/10 backdrop-blur-sm mb-4">
-                        <span className="text-4xl">S+</span>
+                    <div className="bg-white rounded-lg p-6 border border-gray-200 text-center space-y-2">
+                      <div className="inline-block px-6 py-2 rounded-full bg-gray-100 mb-2">
+                        <span className="text-4xl text-gray-800">S+</span>
                       </div>
-                      <p className="text-white/80">あなたのランク</p>
+                      <p className="text-sm text-gray-500">あなたのランク</p>
                     </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between p-4 rounded-lg bg-white/5">
+                    <div className="bg-white rounded-lg p-6 border border-gray-200 space-y-4">
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 border border-gray-100">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-sm">1</div>
-                          <span>田中 太郎</span>
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-sm text-gray-900">1</div>
+                          <span className="text-gray-900">さくらんぼ</span>
                         </div>
-                        <span className="text-white/80">9,850点</span>
+                        <span className="text-gray-600">9,850点</span>
                       </div>
-                      <div className="flex items-center justify-between p-4 rounded-lg bg-white/5">
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 border border-gray-100">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center text-sm text-gray-900">2</div>
-                          <span>佐藤 花子</span>
+                          <span className="text-gray-900">くろまる</span>
                         </div>
-                        <span className="text-white/80">9,720点</span>
+                        <span className="text-gray-600">9,720点</span>
                       </div>
-                      <div className="flex items-center justify-between p-4 rounded-lg bg-[#c2255d]/20 border border-[#c2255d]/50">
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-[#fff1f4] border border-[#f2b8c7]">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-sm">3</div>
-                          <span>あなた</span>
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-sm text-gray-900">3</div>
+                          <span className="text-gray-900">あなた</span>
                         </div>
-                        <span>9,680点</span>
+                        <span className="text-gray-900">9,680点</span>
                       </div>
                     </div>
-                    <div className="text-center text-sm text-white/60">
+                    <div className="text-center text-sm text-gray-500">
                       上位 5% • 週間ランキング
                     </div>
                   </div>
@@ -803,7 +798,7 @@ export default function Page() {
                   モチベーション維持
                 </Badge>
                 <h3 className="text-2xl sm:text-3xl tracking-tight mb-4">
-                  モチベーション維持：健全な競争と成長実感
+                  健全な競争と成長実感
                 </h3>
                 <p className="text-gray-600 mb-6 leading-relaxed">
                   ランク（S+, S, A...）とランキング（全国/学校/グループ、週間/総合）で、ユーザーの学習意欲を刺激。ランキングはオプトイン方式で、プレッシャーを感じたくないユーザーは不参加を選択できます。
