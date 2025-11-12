@@ -40,3 +40,38 @@ OPENAI_API_KEY=xxx python3 scripts/generate_embeddings.py --batch 100 --resume
 4. 進捗・失敗時の再試行に `--sleep` を調整（デフォルト 1 秒）。
 
 生成されるファイル: `data/vocab-embeddings.jsonl`（1行1語、`id`, `word`, `difficulty_score`, `embedding`）。実行中は `Processing words 1-50 / 9223` のような進捗ログが標準出力に出ます。
+
+## セッション生成API
+Next.js API ルート `/api/sessions/plan` は `data/vocabulary.json` と `data/vocab-embeddings.jsonl` を利用して、Retento で使う 10 問セッションの単語リストを組み立てるための汎用エンドポイントです。
+
+### リクエスト例 (POST)
+```jsonc
+{
+  "userScore": 4200,
+  "sessionSize": 10,
+  "reviewIds": [12, 37]
+}
+```
+
+### パラメータ
+- `userScore`: セッションを組む際の参考スコア（5〜10,000 で変換済み）。スコアに近い難易度の単語がベースになります。
+- `sessionSize`: 生成したい単語数（デフォルト 10、最大 20）。
+- `reviewIds`: レビュー候補（1件～3件）を先に含める場合に ID を渡します。
+
+### レスポンス
+```jsonc
+{
+  "words": [
+    { "id": 5, "word": "it", "basis": "review", "difficultyScore": 10, "meanings": ["それは", "それが"], "neighborScore": null },
+    ...
+  ],
+  "metadata": {
+    "sessionSize": 10,
+    "baseWordIds": [5, 239, 52],
+    "userScore": 4200,
+    "difficultyRange": [3800, 4600]
+  }
+}
+```
+
+ベースワード（`basis` が `review` または `score`）を最大3つ選び、残りはベース単語とのコサイン類似度が高い語で埋めます。埋め込み未生成時はベース単語のみで構成されます。API を呼ぶフローに組み込むことで、ユーザーのスコア／レビュー候補に応じたセッションを一律に再現できます。
