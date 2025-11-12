@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, useScroll, useTransform } from 'motion/react';
 import { Button } from '@/components/ui/button';
@@ -1061,46 +1060,22 @@ export default function Page() {
                 </ul>
               </div>
               <div>
-              <h4 className="mb-4 text-gray-900">サポート</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li>
-                  <Link href="/support/help-center" className="hover:text-gray-900">
-                    ヘルプセンター
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/support/faq" className="hover:text-gray-900">
-                    よくある質問
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/support/contact" className="hover:text-gray-900">
-                    お問い合わせ
-                  </Link>
-                </li>
-              </ul>
+                <h4 className="mb-4 text-gray-900">サポート</h4>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li><a href="#" className="hover:text-gray-900">ヘルプセンター</a></li>
+                  <li><a href="#" className="hover:text-gray-900">よくある質問</a></li>
+                  <li><a href="#" className="hover:text-gray-900">お問い合わせ</a></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="mb-4 text-gray-900">法務</h4>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li><a href="#" className="hover:text-gray-900">利用規約</a></li>
+                  <li><a href="#" className="hover:text-gray-900">プライバシーポリシー</a></li>
+                  <li><a href="#" className="hover:text-gray-900">特定商取引法に基づく表記</a></li>
+                </ul>
+              </div>
             </div>
-            <div>
-              <h4 className="mb-4 text-gray-900">法務</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li>
-                  <Link href="/terms" className="hover:text-gray-900">
-                    利用規約
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/privacy" className="hover:text-gray-900">
-                    プライバシーポリシー
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/legal/commerce" className="hover:text-gray-900">
-                    特定商取引法に基づく表記
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
             <div className="pt-8 border-t border-gray-200 text-center text-sm text-gray-600">
               <p>© 2025 Retento. All rights reserved.</p>
             </div>

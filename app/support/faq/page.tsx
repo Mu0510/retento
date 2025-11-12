@@ -1,48 +1,32 @@
 import Link from 'next/link';
-import InfoPageShell from '@/components/InfoPageShell';
-import PublicLayout from '@/components/PublicLayout';
-
-const faqs = [
-  {
-    question: 'セッションの予約はどうやってできますか？',
-    answer: 'メイン画面の「セッションを開始」をタップし、希望の日時を選ぶだけで即時予約が完了します。',
-  },
-  {
-    question: '学習履歴は端末を変えても残りますか？',
-    answer: 'はい。アカウントにひもづいてクラウド保存されるため、端末を替えても進捗はそのままです。',
-  },
-  {
-    question: 'サブスクリプションはいつでも解約できますか？',
-    answer: 'マイページの「サブスクリプション管理」でいつでも解約できます（次回請求日前まで利用可能）。',
-  },
-];
 
 export default function SupportFaqPage() {
   return (
-    <PublicLayout>
-      <InfoPageShell
-        eyebrow="Support"
-        title="よくある質問"
-        description="Retentoの利用でよくある疑問をまとめました。必要に応じてヘルプセンターやサポートへお繋ぎします。"
-        ctaLabel="ヘルプセンターを確認"
-        ctaHref="/support/help-center"
-      >
-        {faqs.map((faq) => (
-          <div key={faq.question} className="rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
-            <p className="text-sm font-semibold text-gray-900">{`Q: ${faq.question}`}</p>
-            <p className="text-sm text-gray-600 mt-2">{`A: ${faq.answer}`}</p>
+    <div className="min-h-screen bg-slate-50 py-12 px-4">
+      <div className="mx-auto max-w-3xl space-y-6 rounded-3xl border border-gray-100 bg-white p-8 shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
+        <p className="text-xs font-semibold uppercase tracking-[0.4em] text-gray-400">Retento Support</p>
+        <h1 className="text-3xl font-semibold text-gray-900">よくある質問</h1>
+        <div className="space-y-4 text-sm text-gray-600">
+          <div className="space-y-1">
+            <p className="font-semibold text-gray-800">Q: セッションの予約はどうやってできますか？</p>
+            <p>A: メイン画面の「セッションを開始」をクリックし、希望の日時を選択すると即時予約されます。</p>
           </div>
-        ))}
-        <p>
-          ほかのトラブルシューティングは
-          <span className="text-[#c2255d] underline">
-            <Link href="/support/help-center" className="ml-1">
-              ヘルプセンター
-            </Link>
-          </span>
-          をご利用ください。
-        </p>
-      </InfoPageShell>
-    </PublicLayout>
+          <div className="space-y-1">
+            <p className="font-semibold text-gray-800">Q: 学習履歴は消えますか？</p>
+            <p>A: アカウントに紐づけてクラウド保存するため、端末を変更しても維持されます。</p>
+          </div>
+          <div className="space-y-1">
+            <p className="font-semibold text-gray-800">Q: サブスクリプションは解約できますか？</p>
+            <p>A: マイページの「サブスクリプション管理」からいつでも解約できます（次回請求日前まで利用可能）。</p>
+          </div>
+        </div>
+        <Link href="/support/help-center" className="text-sm font-semibold text-[#c2255d] underline underline-offset-4">
+          その他のトラブルシューティングを参照
+        </Link>
+        <Link href="/" className="text-sm font-semibold text-[#c2255d] underline underline-offset-4">
+          ホームに戻る
+        </Link>
+      </div>
+    </div>
   );
 }

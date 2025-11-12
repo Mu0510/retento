@@ -1,12 +1,11 @@
 import Link from 'next/link';
-import { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 
 type InfoPageShellProps = {
   eyebrow?: string;
   title: string;
   description: string;
-  children: ReactNode;
+  children: React.ReactNode;
   ctaLabel?: string;
   ctaHref?: string;
 };
@@ -20,8 +19,8 @@ export default function InfoPageShell({
   ctaHref,
 }: InfoPageShellProps) {
   return (
-    <section className="py-16 sm:py-20 bg-gradient-to-b from-white via-white to-[#f7f6f4]">
-      <div className="mx-auto w-[90vw] max-w-4xl px-4">
+    <div className="min-h-screen bg-gradient-to-b from-white via-white to-[#f7f6f4]">
+      <div className="mx-auto w-[90vw] max-w-4xl px-4 py-16 sm:py-20">
         <div className="flex flex-col gap-10 rounded-[32px] border border-gray-100 bg-white/80 p-10 shadow-xl shadow-gray-200/40 backdrop-blur">
           <div className="space-y-3">
             {eyebrow && (
@@ -44,6 +43,6 @@ export default function InfoPageShell({
           <div className="space-y-6 text-sm text-gray-600">{children}</div>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
