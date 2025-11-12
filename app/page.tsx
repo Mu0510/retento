@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, useScroll, useTransform } from 'motion/react';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ import { useSession, signOut } from 'next-auth/react';
 
 export default function Page() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     container: scrollContainerRef,
@@ -45,6 +47,8 @@ export default function Page() {
   ];
   const thumbRef = useRef<HTMLDivElement | null>(null);
   const thumbMetricsRef = useRef({ height: 0, top: 0 });
+  const userMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const originalBodyOverflow = document.body.style.overflow;
@@ -160,6 +164,23 @@ export default function Page() {
     };
   }, [isDragging, topOffset, bottomOffset]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!isUserMenuOpen) return;
+      const target = event.target as Node;
+      if (
+        userMenuButtonRef.current?.contains(target) ||
+        userMenuRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setIsUserMenuOpen(false);
+    };
+
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => document.removeEventListener('pointerdown', handleClickOutside);
+  }, [isUserMenuOpen]);
+
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
@@ -178,20 +199,64 @@ export default function Page() {
     router.push('/auth/signup');
   };
 
-  const goToApp = () => {
-    setIsMenuOpen(false);
-    router.push('/auth/login');
-  };
-
   const { data: session, status } = useSession();
   const isAuthenticated = status === 'authenticated';
   const userInitial =
     session?.user?.name?.charAt(0).toUpperCase() ?? session?.user?.email?.charAt(0).toUpperCase() ?? 'R';
 
+  const goToApp = () => {
+    setIsMenuOpen(false);
+    setIsUserMenuOpen(false);
+    router.push(isAuthenticated ? '/app' : '/auth/login');
+  };
+
   const handleSignOut = () => {
     setIsMenuOpen(false);
+    setIsUserMenuOpen(false);
     void signOut({ callbackUrl: '/' });
   };
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setIsUserMenuOpen(false);
+    }
+  }, [isAuthenticated]);
+
+  const toggleUserMenu = () => {
+    setIsUserMenuOpen((prev) => !prev);
+  };
+
+  const handleSignOutAndClose = () => {
+    setIsUserMenuOpen(false);
+    handleSignOut();
+  };
+
+  const goToAccountSettings = () => {
+    setIsMenuOpen(false);
+    setIsUserMenuOpen(false);
+    router.push('/account');
+  };
+
+  const userMenuActions = [
+    {
+      id: 'app',
+      label: 'アプリに移動',
+      description: '学習セッションを開く',
+      action: goToApp,
+    },
+    {
+      id: 'settings',
+      label: 'アカウント設定',
+      description: 'プロフィール・通知を管理',
+      action: goToAccountSettings,
+    },
+    {
+      id: 'logout',
+      label: 'ログアウト',
+      description: 'Retentoからサインアウトする',
+      action: handleSignOutAndClose,
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-white relative">
@@ -226,23 +291,66 @@ export default function Page() {
 
             <div className="hidden md:flex items-center gap-3">
               {isAuthenticated ? (
-                <button
-                  onClick={handleSignOut}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-700 transition hover:bg-gray-200"
-                  aria-label="ログアウト"
-                >
-                  {session?.user?.image ? (
-                    <ImageWithFallback
-                      src={session.user.image}
-                      width={40}
-                      height={40}
-                      alt="ユーザーアイコン"
-                      className="h-10 w-10 rounded-full"
-                    />
-                  ) : (
-                    <span>{userInitial}</span>
+                <div className="relative group">
+                  <span className="pointer-events-none absolute -inset-2 rounded-full bg-gray-200/60 opacity-0 transition duration-200 group-hover:opacity-80" />
+                  <button
+                    ref={userMenuButtonRef}
+                    type="button"
+                    onClick={toggleUserMenu}
+                    aria-label="ユーザーメニューを開く"
+                    aria-expanded={isUserMenuOpen}
+                    className="relative z-10 flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
+                  >
+                    {session?.user?.image ? (
+                      <ImageWithFallback
+                        src={session.user.image}
+                        width={34}
+                        height={34}
+                        alt="ユーザーアイコン"
+                        className="h-[34px] w-[34px] rounded-full"
+                      />
+                    ) : (
+                      <span>{userInitial}</span>
+                    )}
+                  </button>
+                  {isUserMenuOpen && (
+                    <div
+                      ref={userMenuRef}
+                      className="absolute right-0 top-full mt-3 w-56 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm"
+                    >
+                      <div className="px-1 pb-2">
+                        <p className="text-[10px] uppercase tracking-[0.4em] text-gray-400">Account</p>
+                        <p className="mt-1 truncate text-sm font-semibold text-gray-900">
+                          {session?.user?.name ?? session?.user?.email ?? 'Retento'}
+                        </p>
+                      </div>
+                      <div className="mt-1 space-y-1">
+                        {userMenuActions.map((action) => (
+                          <button
+                            key={action.id}
+                            type="button"
+                            onClick={action.action}
+                            className={`flex w-full items-center justify-between rounded-2xl px-3 py-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c2255d]/60 ${
+                              action.id === 'logout'
+                                ? 'text-[#c2255d] hover:bg-[#c2255d]/5'
+                                : 'text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            <div className="flex flex-col text-left">
+                              <span className="text-sm font-semibold leading-snug">{action.label}</span>
+                              <span className="text-[11px] text-gray-500 leading-tight">{action.description}</span>
+                            </div>
+                            <ChevronRight
+                              className={`h-4 w-4 transition ${
+                                action.id === 'logout' ? 'text-[#c2255d]' : 'text-gray-400'
+                              }`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   )}
-                </button>
+                </div>
               ) : (
                 <>
                   <Button variant="ghost" onClick={goToLogin}>ログイン</Button>
@@ -953,22 +1061,46 @@ export default function Page() {
                 </ul>
               </div>
               <div>
-                <h4 className="mb-4 text-gray-900">サポート</h4>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li><a href="#" className="hover:text-gray-900">ヘルプセンター</a></li>
-                  <li><a href="#" className="hover:text-gray-900">よくある質問</a></li>
-                  <li><a href="#" className="hover:text-gray-900">お問い合わせ</a></li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="mb-4 text-gray-900">法務</h4>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li><a href="#" className="hover:text-gray-900">利用規約</a></li>
-                  <li><a href="#" className="hover:text-gray-900">プライバシーポリシー</a></li>
-                  <li><a href="#" className="hover:text-gray-900">特定商取引法に基づく表記</a></li>
-                </ul>
-              </div>
+              <h4 className="mb-4 text-gray-900">サポート</h4>
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li>
+                  <Link href="/support/help-center" className="hover:text-gray-900">
+                    ヘルプセンター
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/support/faq" className="hover:text-gray-900">
+                    よくある質問
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/support/contact" className="hover:text-gray-900">
+                    お問い合わせ
+                  </Link>
+                </li>
+              </ul>
             </div>
+            <div>
+              <h4 className="mb-4 text-gray-900">法務</h4>
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li>
+                  <Link href="/terms" className="hover:text-gray-900">
+                    利用規約
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/privacy" className="hover:text-gray-900">
+                    プライバシーポリシー
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/legal/commerce" className="hover:text-gray-900">
+                    特定商取引法に基づく表記
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          </div>
             <div className="pt-8 border-t border-gray-200 text-center text-sm text-gray-600">
               <p>© 2025 Retento. All rights reserved.</p>
             </div>

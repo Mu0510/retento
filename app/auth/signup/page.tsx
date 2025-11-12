@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { type FormEvent } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { type FormEvent, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 
@@ -10,8 +10,7 @@ const socialProviders = [
   {
     id: 'google',
     label: 'Google アカウントで登録',
-    buttonClass:
-      'border border-gray-200 bg-white text-gray-900 shadow-sm hover:bg-gray-50',
+    buttonClass: 'border border-gray-200 bg-white text-gray-900 shadow-sm hover:bg-gray-50',
   },
 ];
 
@@ -38,16 +37,70 @@ const GoogleIcon = () => (
   </svg>
 );
 
-const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
-  event.preventDefault();
-};
-
 export default function SignUpPage() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') ?? '/';
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [agreed, setAgreed] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSocialSignIn = (providerId: SocialProviderId) => {
     void signIn(providerId, { callbackUrl });
+  };
+
+  const handleFormSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!email || !password) {
+      setStatusMessage('メールアドレスとパスワードの両方を入力してください');
+      return;
+    }
+
+    if (!agreed) {
+      setStatusMessage('利用規約とプライバシーポリシーに同意してください');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMessage(null);
+    setInfoMessage('アカウントを作成しています…');
+
+    const response = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setStatusMessage((payload as { error?: string }).error ?? '登録に失敗しました');
+      setInfoMessage(null);
+      setIsSubmitting(false);
+      return;
+    }
+
+    setInfoMessage('アカウントを作成しました。サインインしています…');
+
+    const result = await signIn('credentials', {
+      redirect: false,
+      email,
+      password,
+      callbackUrl,
+    });
+
+    if (result?.error) {
+      setStatusMessage(result.error);
+      setInfoMessage(null);
+      setIsSubmitting(false);
+      return;
+    }
+
+    const destination = result?.url ?? callbackUrl;
+    router.push(destination);
   };
 
   return (
@@ -72,9 +125,11 @@ export default function SignUpPage() {
                 <span>{provider.label}</span>
               </button>
             ))}
-            <p className="text-center text-xs font-medium uppercase tracking-[0.3em] text-gray-400">
-              またはメールで登録
-            </p>
+            <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-[0.3em] text-gray-400 pt-3">
+              <span aria-hidden="true" className="flex-1 h-px bg-gray-200" />
+              <span>または</span>
+              <span aria-hidden="true" className="flex-1 h-px bg-gray-200" />
+            </div>
           </div>
 
           <form onSubmit={handleFormSubmit} className="mt-5 space-y-5">
@@ -84,6 +139,8 @@ export default function SignUpPage() {
                 type="email"
                 required
                 placeholder="you@example.com"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
                 className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:border-[#c2255d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c2255d]/30"
               />
             </label>
@@ -94,14 +151,18 @@ export default function SignUpPage() {
                 type="password"
                 required
                 placeholder="最低8文字"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
                 className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:border-[#c2255d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c2255d]/30"
               />
             </label>
 
-            <div className="flex items-start gap-2 text-xs text-gray-600">
+            <div className="flex items-center justify-center gap-2 text-xs text-gray-600">
               <input
                 id="agreement"
                 type="checkbox"
+                checked={agreed}
+                onChange={(event) => setAgreed(event.target.checked)}
                 className="h-4 w-4 rounded border border-gray-300 bg-white accent-[#c2255d] focus:ring-[#c2255d] checked:bg-[#c2255d] checked:border-[#c2255d] origin-left"
                 style={{ transform: "scale(0.85)" }}
               />
@@ -118,18 +179,25 @@ export default function SignUpPage() {
               </label>
             </div>
 
-            <Button type="submit" size="lg" className="w-full rounded-full bg-[#c2255d] text-white">
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full rounded-full bg-[#c2255d] text-white"
+              disabled={isSubmitting || !agreed}
+            >
               無料で始める
             </Button>
           </form>
+          {(infoMessage || statusMessage) && (
+            <p className="mt-3 text-center text-sm text-[#c2255d]" role="status" aria-live="polite">
+              {statusMessage ?? infoMessage}
+            </p>
+          )}
 
           <div className="mt-6 text-center text-sm text-gray-400">
             <span>
-              既にアカウントがありますか？{' '}
-              <Link
-                href="/auth/login"
-                className="text-[#c2255d] opacity-[0.85] underline underline-offset-4"
-              >
+              既にアカウントがありますか？{" "}
+              <Link href="/auth/login" className="text-[#c2255d] opacity-[0.85] underline underline-offset-4">
                 ログイン
               </Link>
             </span>
