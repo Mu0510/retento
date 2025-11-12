@@ -1,18 +1,18 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, useScroll, useTransform } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { SiteHeader } from '@/components/layout/SiteHeader';
+import { SiteFooter } from '@/components/layout/SiteFooter';
 import {
   Brain,
   Sparkles,
   Gauge,
   ChevronRight,
-  Menu,
-  X,
   ArrowRight,
   CheckCircle2,
   Zap,
@@ -23,8 +23,6 @@ import { ImageWithFallback } from '@/components/ImageWithFallback';
 import { useSession, signOut } from 'next-auth/react';
 
 export default function Page() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     container: scrollContainerRef,
@@ -46,8 +44,6 @@ export default function Page() {
   ];
   const thumbRef = useRef<HTMLDivElement | null>(null);
   const thumbMetricsRef = useRef({ height: 0, top: 0 });
-  const userMenuButtonRef = useRef<HTMLButtonElement | null>(null);
-  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const originalBodyOverflow = document.body.style.overflow;
@@ -163,99 +159,83 @@ export default function Page() {
     };
   }, [isDragging, topOffset, bottomOffset]);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!isUserMenuOpen) return;
-      const target = event.target as Node;
-      if (
-        userMenuButtonRef.current?.contains(target) ||
-        userMenuRef.current?.contains(target)
-      ) {
-        return;
-      }
-      setIsUserMenuOpen(false);
-    };
-
-    document.addEventListener('pointerdown', handleClickOutside);
-    return () => document.removeEventListener('pointerdown', handleClickOutside);
-  }, [isUserMenuOpen]);
-
-  const scrollToSection = (id: string) => {
+  const scrollToSection = useCallback((id: string) => {
     const element = document.getElementById(id);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' });
-      setIsMenuOpen(false);
     }
-  };
+  }, []);
 
-  const goToLogin = () => {
-    setIsMenuOpen(false);
+  const goToLogin = useCallback(() => {
     router.push('/auth/login');
-  };
+  }, [router]);
 
-  const goToSignup = () => {
-    setIsMenuOpen(false);
+  const goToSignup = useCallback(() => {
     router.push('/auth/signup');
-  };
+  }, [router]);
 
   const { data: session, status } = useSession();
   const isAuthenticated = status === 'authenticated';
-  const userInitial =
-    session?.user?.name?.charAt(0).toUpperCase() ?? session?.user?.email?.charAt(0).toUpperCase() ?? 'R';
 
-  const goToApp = () => {
-    setIsMenuOpen(false);
-    setIsUserMenuOpen(false);
+  const goToApp = useCallback(() => {
     router.push(isAuthenticated ? '/app' : '/auth/login');
-  };
+  }, [isAuthenticated, router]);
 
-  const handleSignOut = () => {
-    setIsMenuOpen(false);
-    setIsUserMenuOpen(false);
+  const handleSignOut = useCallback(() => {
     void signOut({ callbackUrl: '/' });
-  };
+  }, []);
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setIsUserMenuOpen(false);
-    }
-  }, [isAuthenticated]);
-
-  const toggleUserMenu = () => {
-    setIsUserMenuOpen((prev) => !prev);
-  };
-
-  const handleSignOutAndClose = () => {
-    setIsUserMenuOpen(false);
-    handleSignOut();
-  };
-
-  const goToAccountSettings = () => {
-    setIsMenuOpen(false);
-    setIsUserMenuOpen(false);
+  const goToAccountSettings = useCallback(() => {
     router.push('/account');
-  };
+  }, [router]);
 
-  const userMenuActions = [
-    {
-      id: 'app',
-      label: 'アプリに移動',
-      description: '学習セッションを開く',
-      action: goToApp,
-    },
-    {
-      id: 'settings',
-      label: 'アカウント設定',
-      description: 'プロフィール・通知を管理',
-      action: goToAccountSettings,
-    },
-    {
-      id: 'logout',
-      label: 'ログアウト',
-      description: 'Retentoからサインアウトする',
-      action: handleSignOutAndClose,
-    },
-  ];
+  const goHome = useCallback(() => {
+    router.push('/');
+  }, [router]);
+
+  const navigationItems = useMemo(
+    () => [
+      {
+        id: 'concept',
+        label: 'コンセプト',
+        onClick: () => scrollToSection('concept'),
+      },
+      {
+        id: 'features',
+        label: '機能',
+        onClick: () => scrollToSection('features'),
+      },
+    ],
+    [scrollToSection],
+  );
+
+  const productLinks = useMemo(
+    () =>
+      navigationItems.map((item) => ({
+        label: item.label,
+        href: item.href,
+        onClick: item.onClick,
+      })),
+    [navigationItems],
+  );
+
+  const supportLinks = useMemo(
+    () => [
+      { label: 'ヘルプセンター', href: '/support/help-center' },
+      { label: 'よくある質問', href: '/support/faq' },
+      { label: 'お問い合わせ', href: '/support/contact' },
+    ],
+    [],
+  );
+
+  const legalLinks = useMemo(
+    () => [
+      { label: '利用規約', href: '/terms' },
+      { label: 'プライバシーポリシー', href: '/privacy' },
+      { label: '特定商取引法に基づく表記', href: '/legal/commerce' },
+    ],
+    [],
+  );
 
   return (
     <div className="min-h-screen bg-white relative">
@@ -263,173 +243,24 @@ export default function Page() {
         ref={scrollContainerRef}
         className="scroll-wrapper h-screen w-full overflow-y-auto scroll-smooth"
       >
-        <div className="mx-auto w-[90vw] max-w-[1600px] px-4 sm:px-6 lg:px-8">
-      {/* Header */}
-      <motion.header 
-        style={{ opacity: headerOpacity }}
-        className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100"
-      >
-        <div className="mx-auto w-[90vw] max-w-[1600px] px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center">
-                <span className="text-white">R</span>
-              </div>
-              <span className="text-xl tracking-tight">Retento</span>
-            </div>
-            
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-8">
-              <button onClick={() => scrollToSection('concept')} className="text-gray-600 hover:text-gray-900 transition-colors">
-                コンセプト
-              </button>
-              <button onClick={() => scrollToSection('features')} className="text-gray-600 hover:text-gray-900 transition-colors">
-                機能
-              </button>
-            </nav>
+        <SiteHeader
+          style={{ opacity: headerOpacity }}
+          navItems={navigationItems}
+          isAuthenticated={isAuthenticated}
+          user={session?.user ?? null}
+          onLogin={goToLogin}
+          onSignup={goToSignup}
+          onNavigateToApp={goToApp}
+          onAccountSettings={goToAccountSettings}
+          onSignOut={handleSignOut}
+          onNavigateHome={goHome}
+          onLogoClick={goHome}
+        />
 
-            <div className="hidden md:flex items-center gap-3">
-              {isAuthenticated ? (
-                <div className="relative group">
-                  <span className="pointer-events-none absolute -inset-2 rounded-full bg-gray-200/60 opacity-0 transition duration-200 group-hover:opacity-80" />
-                  <button
-                    ref={userMenuButtonRef}
-                    type="button"
-                    onClick={toggleUserMenu}
-                    aria-label="ユーザーメニューを開く"
-                    aria-expanded={isUserMenuOpen}
-                    className="relative z-10 flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
-                  >
-                    {session?.user?.image ? (
-                      <ImageWithFallback
-                        src={session.user.image}
-                        width={34}
-                        height={34}
-                        alt="ユーザーアイコン"
-                        className="h-[34px] w-[34px] rounded-full"
-                      />
-                    ) : (
-                      <span>{userInitial}</span>
-                    )}
-                  </button>
-                  {isUserMenuOpen && (
-                    <div
-                      ref={userMenuRef}
-                      className="absolute right-0 top-full mt-3 w-56 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm"
-                    >
-                      <div className="px-1 pb-2">
-                        <p className="text-[10px] uppercase tracking-[0.4em] text-gray-400">Account</p>
-                        <p className="mt-1 truncate text-sm font-semibold text-gray-900">
-                          {session?.user?.name ?? session?.user?.email ?? 'Retento'}
-                        </p>
-                      </div>
-                      <div className="mt-1 space-y-1">
-                        {userMenuActions.map((action) => (
-                          <button
-                            key={action.id}
-                            type="button"
-                            onClick={action.action}
-                            className={`flex w-full items-center justify-between rounded-2xl px-3 py-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c2255d]/60 ${
-                              action.id === 'logout'
-                                ? 'text-[#c2255d] hover:bg-[#c2255d]/5'
-                                : 'text-gray-700 hover:bg-gray-50'
-                            }`}
-                          >
-                            <div className="flex flex-col text-left">
-                              <span className="text-sm font-semibold leading-snug">{action.label}</span>
-                              <span className="text-[11px] text-gray-500 leading-tight">{action.description}</span>
-                            </div>
-                            <ChevronRight
-                              className={`h-4 w-4 transition ${
-                                action.id === 'logout' ? 'text-[#c2255d]' : 'text-gray-400'
-                              }`}
-                            />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <>
-                  <Button variant="ghost" onClick={goToLogin}>ログイン</Button>
-                  <Button className="bg-[#c2255d] hover:bg-[#a01d4d] text-white" onClick={goToSignup}>
-                    今すぐ始める
-                  </Button>
-                </>
-              )}
-            </div>
-
-            {/* Mobile Menu Button */}
-            <button 
-              className="md:hidden p-2"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Menu */}
-        {isMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="md:hidden absolute top-16 left-0 right-0 bg-white border-b border-gray-100 shadow-lg"
-          >
-            <div className="mx-auto w-[90vw] max-w-[1600px] px-4 sm:px-6 lg:px-8">
-              <div className="py-6 space-y-4">
-                <button
-                  onClick={() => scrollToSection('concept')}
-                  className="block w-full text-left px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
-                >
-                  コンセプト
-                </button>
-                <button
-                  onClick={() => scrollToSection('features')}
-                  className="block w-full text-left px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
-                >
-                  機能
-                </button>
-                <div className="pt-4 border-t border-gray-100 space-y-2">
-                  {isAuthenticated ? (
-                    <div className="flex items-center justify-between gap-3">
-                      <button
-                        onClick={handleSignOut}
-                        className="flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                      >
-                        <span className="h-6 w-6 rounded-full bg-gray-100 text-center text-xs leading-6">
-                          {userInitial}
-                        </span>
-                        サインアウト
-                      </button>
-                      <Button className="w-full bg-[#c2255d] hover:bg-[#a01d4d] text-white" onClick={() => router.push('/')}>
-                        ホームへ戻る
-                      </Button>
-                    </div>
-                  ) : (
-                    <>
-                      <Button variant="outline" className="w-full" onClick={goToLogin}>
-                        ログイン
-                      </Button>
-                      <Button className="w-full bg-[#c2255d] hover:bg-[#a01d4d] text-white" onClick={goToSignup}>
-                        今すぐ始める
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-        </motion.header>
-        </div>
-
-      {/* Hero Section */}
-      <section className="relative pt-16 sm:pt-20 pb-16 sm:pb-24 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-gray-50/50 to-white -z-10" />
-        <div className="mx-auto w-[90vw] max-w-[1600px] px-4 sm:px-6 lg:px-8">
+        {/* Hero Section */}
+        <section className="relative pt-16 sm:pt-20 pb-16 sm:pb-24 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-gray-50/50 to-white -z-10" />
+          <div className="mx-auto w-[90vw] max-w-[1600px] px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -1037,51 +868,11 @@ export default function Page() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-50 border-t border-gray-100">
-        <div className="w-full py-12">
-          <div className="mx-auto w-[90vw] max-w-[1600px] px-4 sm:px-6 lg:px-8">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center">
-                    <span className="text-white">R</span>
-                  </div>
-                  <span className="text-xl tracking-tight">Retento</span>
-                </div>
-                <p className="text-sm text-gray-600">
-                大学受験向け英単語学習アプリ
-                </p>
-              </div>
-              <div>
-                <h4 className="mb-4 text-gray-900">プロダクト</h4>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li><button onClick={() => scrollToSection('concept')} className="hover:text-gray-900">コンセプト</button></li>
-                  <li><button onClick={() => scrollToSection('features')} className="hover:text-gray-900">機能</button></li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="mb-4 text-gray-900">サポート</h4>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li><a href="#" className="hover:text-gray-900">ヘルプセンター</a></li>
-                  <li><a href="#" className="hover:text-gray-900">よくある質問</a></li>
-                  <li><a href="#" className="hover:text-gray-900">お問い合わせ</a></li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="mb-4 text-gray-900">法務</h4>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li><a href="#" className="hover:text-gray-900">利用規約</a></li>
-                  <li><a href="#" className="hover:text-gray-900">プライバシーポリシー</a></li>
-                  <li><a href="#" className="hover:text-gray-900">特定商取引法に基づく表記</a></li>
-                </ul>
-              </div>
-            </div>
-            <div className="pt-8 border-t border-gray-200 text-center text-sm text-gray-600">
-              <p>© 2025 Retento. All rights reserved.</p>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter
+        productLinks={productLinks}
+        supportLinks={supportLinks}
+        legalLinks={legalLinks}
+      />
     </div>
     {/* Custom scrollbar overlay */}
     <div
