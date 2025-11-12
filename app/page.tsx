@@ -20,6 +20,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { ImageWithFallback } from '@/components/ImageWithFallback';
+import { useSession, signOut } from 'next-auth/react';
 
 export default function Page() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -177,6 +178,21 @@ export default function Page() {
     router.push('/auth/signup');
   };
 
+  const goToApp = () => {
+    setIsMenuOpen(false);
+    router.push('/auth/login');
+  };
+
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === 'authenticated';
+  const userInitial =
+    session?.user?.name?.charAt(0).toUpperCase() ?? session?.user?.email?.charAt(0).toUpperCase() ?? 'R';
+
+  const handleSignOut = () => {
+    setIsMenuOpen(false);
+    void signOut({ callbackUrl: '/' });
+  };
+
   return (
     <div className="min-h-screen bg-white relative">
       <div
@@ -209,10 +225,32 @@ export default function Page() {
             </nav>
 
             <div className="hidden md:flex items-center gap-3">
-              <Button variant="ghost" onClick={goToLogin}>ログイン</Button>
-              <Button className="bg-[#c2255d] hover:bg-[#a01d4d] text-white" onClick={goToSignup}>
-                無料で始める
-              </Button>
+              {isAuthenticated ? (
+                <button
+                  onClick={handleSignOut}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-700 transition hover:bg-gray-200"
+                  aria-label="ログアウト"
+                >
+                  {session?.user?.image ? (
+                    <ImageWithFallback
+                      src={session.user.image}
+                      width={40}
+                      height={40}
+                      alt="ユーザーアイコン"
+                      className="h-10 w-10 rounded-full"
+                    />
+                  ) : (
+                    <span>{userInitial}</span>
+                  )}
+                </button>
+              ) : (
+                <>
+                  <Button variant="ghost" onClick={goToLogin}>ログイン</Button>
+                  <Button className="bg-[#c2255d] hover:bg-[#a01d4d] text-white" onClick={goToSignup}>
+                    今すぐ始める
+                  </Button>
+                </>
+              )}
             </div>
 
             {/* Mobile Menu Button */}
@@ -248,12 +286,31 @@ export default function Page() {
                   機能
                 </button>
                 <div className="pt-4 border-t border-gray-100 space-y-2">
-                  <Button variant="outline" className="w-full" onClick={goToLogin}>
-                    ログイン
-                  </Button>
-                  <Button className="w-full bg-[#c2255d] hover:bg-[#a01d4d] text-white" onClick={goToSignup}>
-                    無料で始める
-                  </Button>
+                  {isAuthenticated ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <button
+                        onClick={handleSignOut}
+                        className="flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                      >
+                        <span className="h-6 w-6 rounded-full bg-gray-100 text-center text-xs leading-6">
+                          {userInitial}
+                        </span>
+                        サインアウト
+                      </button>
+                      <Button className="w-full bg-[#c2255d] hover:bg-[#a01d4d] text-white" onClick={() => router.push('/')}>
+                        ホームへ戻る
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Button variant="outline" className="w-full" onClick={goToLogin}>
+                        ログイン
+                      </Button>
+                      <Button className="w-full bg-[#c2255d] hover:bg-[#a01d4d] text-white" onClick={goToSignup}>
+                        今すぐ始める
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -263,7 +320,7 @@ export default function Page() {
         </div>
 
       {/* Hero Section */}
-      <section className="relative pt-24 sm:pt-32 pb-16 sm:pb-24 overflow-hidden">
+      <section className="relative pt-16 sm:pt-20 pb-16 sm:pb-24 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-gray-50/50 to-white -z-10" />
         <div className="mx-auto w-[90vw] max-w-[1600px] px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
@@ -286,12 +343,12 @@ export default function Page() {
                 Retentoは、最上級のUXを追求した英単語学習アプリです。ストレスなく自然に学び続けられる体験設計と、忘却曲線・AI活用による学習効果の最適化を両立します。
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button 
-                  size="lg" 
+                <Button
+                  size="lg"
                   className="bg-[#c2255d] hover:bg-[#a01d4d] text-white group"
-                  onClick={goToSignup}
+                  onClick={goToApp}
                 >
-                  無料で始める
+                  アプリに移動
                   <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </Button>
                 <Button size="lg" variant="outline" onClick={() => scrollToSection('concept')}>
@@ -760,50 +817,42 @@ export default function Page() {
               className="grid lg:grid-cols-2 gap-12 items-center"
             >
               <div>
-                <Card className="rounded-[32px] border border-gray-200 bg-white p-8 shadow-sm">
-                  <div className="space-y-5">
-                    <div className="flex items-center justify-between text-[0.65rem] font-bold uppercase tracking-[0.35em] text-gray-500">
-                      <span>Ranking</span>
-                      <span className="rounded-full bg-gray-100 px-4 py-1 text-[0.55rem] tracking-[0.4em] text-gray-900">
-                        週間
-                      </span>
-                    </div>
+                <Card className="rounded-[32px] border-0 bg-gradient-to-br from-gray-50 to-white p-8 shadow-xl">
+                  <div className="space-y-6">
                     <div className="flex items-center gap-4">
-                      <div className="text-[3rem] font-black tracking-tight text-gray-900">S+</div>
-                      <div>
+                      <div className="text-[3.1rem] font-black tracking-tight text-gray-900">S+</div>
+                      <div className="space-y-1">
                         <p className="text-sm text-gray-500">あなたのランク</p>
-                        <p className="text-base font-semibold text-gray-900">絶対評価</p>
+                        <p className="text-base font-semibold text-gray-900">英検準1級レベル</p>
                       </div>
                     </div>
-                    <div className="rounded-2xl border border-gray-100 bg-gray-50">
-                      <div className="divide-y divide-gray-100">
-                        {rankingRows.map((row) => (
-                          <div
-                            key={row.rank}
-                            className={`flex items-center justify-between gap-3 px-4 py-3 transition ${
-                              row.highlight
-                                ? 'bg-[#fff4f6] text-gray-900'
-                                : 'bg-white hover:bg-white/70'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div
-                                className={`flex h-10 w-10 items-center justify-center rounded-2xl border text-sm font-semibold ${
-                                  row.highlight
-                                    ? 'border-[#ffccd8] bg-white text-[#c2255d]'
-                                    : 'border-gray-200 bg-white text-gray-600'
-                                }`}
-                              >
-                                {row.rank}
-                              </div>
-                              <span className="text-sm font-medium text-gray-900">{row.name}</span>
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
+                      {rankingRows.map((row) => (
+                        <div
+                          key={row.rank}
+                          className={`flex items-center justify-between gap-4 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                            row.highlight
+                              ? 'border-[#ffe0e6] bg-[#fff7f8] text-gray-900'
+                              : 'border-gray-100 bg-white text-gray-900'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`flex h-10 w-10 items-center justify-center rounded-2xl border text-sm font-semibold ${
+                                row.highlight
+                                  ? 'border-[#c2255d] text-[#c2255d]'
+                                  : 'border-gray-200 text-gray-600'
+                              }`}
+                            >
+                              {row.rank}
                             </div>
-                            <span className="text-sm font-semibold text-gray-800">{row.score}</span>
+                            <span className="text-sm font-medium text-gray-900">{row.name}</span>
                           </div>
-                        ))}
-                      </div>
+                          <span className="text-sm font-semibold text-gray-800">{row.score}</span>
+                        </div>
+                      ))}
                     </div>
-                    <div className="text-xs font-semibold tracking-[0.3em] text-gray-500">
+                    <div className="text-xs font-semibold tracking-[0.3em] text-gray-500 text-right">
                       上位 5% • 週間ランキング
                     </div>
                   </div>
@@ -863,9 +912,9 @@ export default function Page() {
               <Button 
                 size="lg" 
                 className="bg-[#c2255d] hover:bg-[#a01d4d] text-white group"
-                onClick={goToSignup}
+                onClick={goToApp}
               >
-                無料で始める
+                アプリに移動
                 <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Button>
               <Button 
