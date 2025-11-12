@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { MarketingPageShell } from "@/components/layout/MarketingPageShell";
+import { SupportSearchForm } from "@/components/support/SupportSearchForm";
 
 const helpCategories = [
   {
@@ -96,22 +97,11 @@ export default function SupportHelpCenterPage() {
             気になるトピックは下記のカテゴリから選び、詳細記事へアクセスしてください。
           </p>
           <div className="mt-8 space-y-6">
-            <form
-              role="search"
-              className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:flex-row sm:items-center"
-              onSubmit={(event) => event.preventDefault()}
-            >
-              <label htmlFor="help-search" className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
-                記事を検索
-              </label>
-              <input
-                id="help-search"
-                type="search"
-                inputMode="search"
-                placeholder="キーワード例: 復習、同期、エラー"
-                className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[#c2255d] focus:outline-none focus:ring-2 focus:ring-[#f3d0dc]"
-              />
-            </form>
+            <SupportSearchForm
+              inputId="help-search"
+              label="記事を検索"
+              placeholder="キーワード例: 復習、同期、エラー"
+            />
             <div className="flex flex-wrap gap-3 text-sm text-gray-600">
               <span className="rounded-full bg-gray-100 px-3 py-1">更新頻度: 月1回</span>
               <span className="rounded-full bg-gray-100 px-3 py-1">記事数: 24 本</span>

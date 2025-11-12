@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { MarketingPageShell } from "@/components/layout/MarketingPageShell";
+import { SupportSearchForm } from "@/components/support/SupportSearchForm";
 
 const faqSections = [
   {
@@ -111,22 +112,12 @@ export default function SupportFaqPage() {
             お困りごとはまずこちらから確認いただき、解決しない場合はお問い合わせフォームへご連絡ください。
           </p>
           <div className="mt-8 flex flex-col gap-4">
-            <form
-              role="search"
+            <SupportSearchForm
+              inputId="faq-search"
+              label="キーワードで探す"
+              placeholder="例: プラン変更、復習、エラー"
               className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:flex-row sm:items-center"
-              onSubmit={(event) => event.preventDefault()}
-            >
-              <label htmlFor="faq-search" className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
-                キーワードで探す
-              </label>
-              <input
-                id="faq-search"
-                type="search"
-                inputMode="search"
-                placeholder="例: プラン変更、復習、エラー"
-                className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[#c2255d] focus:outline-none focus:ring-2 focus:ring-[#f3d0dc]"
-              />
-            </form>
+            />
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">ショートカット</p>
               <ul className="mt-3 grid gap-3 text-sm text-gray-600 sm:grid-cols-3">

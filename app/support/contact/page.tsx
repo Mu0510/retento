@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { EmergencyContactLink } from "@/components/support/EmergencyContactLink";
 import { MarketingPageShell } from "@/components/layout/MarketingPageShell";
 
 const contactChannels = [
@@ -100,14 +101,12 @@ export default function SupportContactPage() {
             <p className="font-semibold">緊急時のご連絡について</p>
             <p className="mt-2">
               学習が停止している、アクセスできないなどの緊急事態は、メールの件名に【緊急】と記載するか、
-              <Link
+              <EmergencyContactLink
                 href="https://x.com/retento_app"
-                target="_blank"
-                rel="noopener noreferrer"
                 className="ml-1 underline decoration-[#c2255d] underline-offset-4"
               >
                 Xアカウント
-              </Link>
+              </EmergencyContactLink>
               へDMをお送りください。受信し次第優先的に確認します。
             </p>
           </div>
