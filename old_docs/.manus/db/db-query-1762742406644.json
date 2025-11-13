@@ -1,0 +1,13 @@
+{
+  "query": "SELECT COUNT(*) as total_progress FROM user_word_progress WHERE userId = 1",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3sWkSgWpVHhWrK5.da53580d88d6 --database JaSyYjpqHW5rrvhiJ2bj3J --execute SELECT COUNT(*) as total_progress FROM user_word_progress WHERE userId = 1",
+  "rows": [
+    {
+      "total_progress": "10"
+    }
+  ],
+  "messages": [],
+  "stdout": "total_progress\n10\n",
+  "stderr": "",
+  "execution_time_ms": 1535
+}

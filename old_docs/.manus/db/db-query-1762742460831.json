@@ -1,0 +1,40 @@
+{
+  "query": "SELECT id, userId, createdAt, usedAt FROM pre_generated_sessions WHERE userId = 1 ORDER BY createdAt DESC LIMIT 5",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3sWkSgWpVHhWrK5.da53580d88d6 --database JaSyYjpqHW5rrvhiJ2bj3J --execute SELECT id, userId, createdAt, usedAt FROM pre_generated_sessions WHERE userId = 1 ORDER BY createdAt DESC LIMIT 5",
+  "rows": [
+    {
+      "id": "360002",
+      "userId": "1",
+      "createdAt": "2025-11-10 02:38:56",
+      "usedAt": "NULL"
+    },
+    {
+      "id": "360001",
+      "userId": "1",
+      "createdAt": "2025-11-10 02:37:49",
+      "usedAt": "NULL"
+    },
+    {
+      "id": "330002",
+      "userId": "1",
+      "createdAt": "2025-11-10 02:30:22",
+      "usedAt": "NULL"
+    },
+    {
+      "id": "330001",
+      "userId": "1",
+      "createdAt": "2025-11-10 02:30:14",
+      "usedAt": "NULL"
+    },
+    {
+      "id": "300004",
+      "userId": "1",
+      "createdAt": "2025-11-10 02:26:24",
+      "usedAt": "2025-11-10 02:38:38"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tuserId\tcreatedAt\tusedAt\n360002\t1\t2025-11-10 02:38:56\tNULL\n360001\t1\t2025-11-10 02:37:49\tNULL\n330002\t1\t2025-11-10 02:30:22\tNULL\n330001\t1\t2025-11-10 02:30:14\tNULL\n300004\t1\t2025-11-10 02:26:24\t2025-11-10 02:38:38\n",
+  "stderr": "",
+  "execution_time_ms": 1603
+}

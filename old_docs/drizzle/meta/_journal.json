@@ -1,0 +1,76 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1762534687614,
+      "tag": "0000_great_sumo",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1762534972510,
+      "tag": "0001_parched_umar",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1762561684709,
+      "tag": "0002_yummy_rictor",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1762598550862,
+      "tag": "0003_handy_sphinx",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1762687991696,
+      "tag": "0004_amused_stature",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1762693433661,
+      "tag": "0005_regular_next_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1762708340991,
+      "tag": "0006_organic_molten_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1762712207707,
+      "tag": "0007_violet_sunfire",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1762759987699,
+      "tag": "0008_goofy_kang",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1762783368770,
+      "tag": "0009_hesitant_synch",
+      "breakpoints": true
+    }
+  ]
+}

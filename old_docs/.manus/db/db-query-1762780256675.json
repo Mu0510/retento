@@ -1,0 +1,14 @@
+{
+  "query": "SELECT COUNT(*) as total, COUNT(embedding) as with_embedding FROM words;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3sWkSgWpVHhWrK5.da53580d88d6 --database JaSyYjpqHW5rrvhiJ2bj3J --execute SELECT COUNT(*) as total, COUNT(embedding) as with_embedding FROM words;",
+  "rows": [
+    {
+      "total": "9222",
+      "with_embedding": "4678"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\twith_embedding\n9222\t4678\n",
+  "stderr": "",
+  "execution_time_ms": 1778
+}

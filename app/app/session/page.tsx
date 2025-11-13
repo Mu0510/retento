@@ -1,7 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import type { PointerEvent, ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, RefreshCcw, CheckCircle2 } from "lucide-react";
 
@@ -49,6 +49,15 @@ type Answer = {
 
 type AnswerSheet = Record<number, Answer>;
 
+type ConfidenceLevel = "none" | "forget" | "iffy" | "perfect";
+type SwipeDirection = "left" | "right" | "up" | null;
+type SwipeIndicatorState = {
+  direction: Exclude<SwipeDirection, null>;
+  label: string;
+  color: string;
+  progress: number;
+};
+
 export default function SessionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -58,6 +67,11 @@ export default function SessionPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<AnswerSheet>({});
+  const [confidenceMap, setConfidenceMap] = useState<Record<number, ConfidenceLevel>>({});
+  const [swipeDirection, setSwipeDirection] = useState<SwipeDirection>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const dragStartRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     const existing = searchParams.get("session");
@@ -132,6 +146,9 @@ export default function SessionPage() {
 
   const currentQuestion = questions[currentIndex];
   const progress = questions.length ? (currentIndex + 1) / questions.length : 0;
+  const currentSheet = currentQuestion ? answers[currentQuestion.word.id] : undefined;
+  const swipeEnabled = Boolean(currentSheet && currentSheet.state !== "idle");
+  const currentQuestionId = currentQuestion?.word.id ?? null;
 
   const handleChoice = (choice: Choice) => {
     if (!currentQuestion) return;
@@ -147,6 +164,146 @@ export default function SessionPage() {
       },
     }));
   };
+
+  const goToNextQuestion = useCallback(() => {
+    setCurrentIndex((prev) => {
+      if (!questions.length) return prev;
+      return prev + 1 < questions.length ? prev + 1 : prev;
+    });
+  }, [questions.length]);
+
+  const commitConfidence = useCallback(
+    (wordId: number, level: ConfidenceLevel) => {
+      let alreadyRecorded = false;
+      setConfidenceMap((prev) => {
+        if (prev[wordId]) {
+          alreadyRecorded = true;
+          return prev;
+        }
+        return { ...prev, [wordId]: level };
+      });
+      if (alreadyRecorded) return;
+      void queueConfidenceRecord(wordId, level);
+      setTimeout(() => {
+        goToNextQuestion();
+        setSwipeDirection(null);
+        setDragOffset({ x: 0, y: 0 });
+        setIsDragging(false);
+      }, 250);
+    },
+    [goToNextQuestion],
+  );
+
+  const handlePointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!swipeEnabled) return;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setIsDragging(true);
+      dragStartRef.current = { x: event.clientX, y: event.clientY };
+      setDragOffset({ x: 0, y: 0 });
+    },
+    [swipeEnabled],
+  );
+
+  const handlePointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!isDragging) return;
+      const deltaX = event.clientX - dragStartRef.current.x;
+      const deltaY = Math.min(event.clientY - dragStartRef.current.y, 0);
+      setDragOffset({ x: deltaX, y: deltaY });
+    },
+    [isDragging],
+  );
+
+  const handlePointerUp = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!isDragging) return;
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+      setIsDragging(false);
+      const result = detectSwipe(dragOffset.x, dragOffset.y);
+      if (result && currentQuestionId) {
+        setSwipeDirection(result.direction);
+        commitConfidence(currentQuestionId, result.level);
+      } else {
+        setDragOffset({ x: 0, y: 0 });
+      }
+    },
+    [commitConfidence, currentQuestionId, dragOffset.x, dragOffset.y, isDragging],
+  );
+
+  const handlePointerCancel = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!isDragging) return;
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+      setIsDragging(false);
+      setDragOffset({ x: 0, y: 0 });
+    },
+    [isDragging],
+  );
+
+  useEffect(() => {
+    setSwipeDirection(null);
+    setDragOffset({ x: 0, y: 0 });
+    setIsDragging(false);
+  }, [currentQuestionId]);
+
+  const recordedConfidence =
+    currentQuestionId && confidenceMap[currentQuestionId] ? confidenceMap[currentQuestionId] : "none";
+  const previewConfidence = swipeDirection ? swipeDirectionToConfidence(swipeDirection) : "none";
+  const displayConfidence = previewConfidence !== "none" ? previewConfidence : recordedConfidence;
+  const baseCardBackground =
+    displayConfidence !== "none" ? CONFIDENCE_BACKGROUND[displayConfidence] : "#ffffff";
+  const baseCardBorder =
+    displayConfidence !== "none" ? CONFIDENCE_BORDER[displayConfidence] : "#e5e7eb";
+
+  const swipeIndicator = useMemo(
+    () => getSwipeIndicator(isDragging, swipeEnabled, dragOffset),
+    [dragOffset, isDragging, swipeEnabled],
+  );
+
+  const cardStyle = useMemo(() => {
+    const defaultStyle = {
+      borderColor: baseCardBorder,
+      backgroundColor: baseCardBackground,
+      transform: "translate3d(0, 0, 0) rotate(0deg)",
+      transition: "transform 0.2s ease-out, opacity 0.2s ease-out",
+      opacity: 1,
+      touchAction: swipeEnabled ? "none" : "auto",
+    };
+
+    if (swipeDirection) {
+      return {
+        ...defaultStyle,
+        transform: SWIPE_EXIT_TRANSFORMS[swipeDirection],
+        opacity: 0,
+        transition: "transform 0.3s ease-out, opacity 0.3s ease-out",
+      };
+    }
+
+    if (isDragging && swipeIndicator) {
+      const rotation = dragOffset.x * 0.08;
+      const opacity = 1 - swipeIndicator.progress * 0.3;
+      const shadow = shadowFromHex(swipeIndicator.color, swipeIndicator.progress * 0.35);
+      return {
+        ...defaultStyle,
+        transform: `translate(${dragOffset.x}px, ${dragOffset.y}px) rotate(${rotation}deg)`,
+        transition: "none",
+        opacity,
+        boxShadow: `0 20px 60px ${shadow}`,
+      };
+    }
+
+    return defaultStyle;
+  }, [
+    baseCardBackground,
+    baseCardBorder,
+    dragOffset.x,
+    dragOffset.y,
+    isDragging,
+    swipeDirection,
+    swipeIndicator,
+    swipeEnabled,
+  ]);
 
   return (
     <div className="min-h-screen bg-[#fdfdfd] text-gray-900">
@@ -195,47 +352,105 @@ export default function SessionPage() {
           <section className="grid gap-8 md:grid-cols-2">
             <div>
               {currentQuestion ? (
-                <div className="bg-white rounded-lg p-6 border border-gray-200 shadow-xl">
-                  <p className="text-gray-700 mb-3 leading-relaxed">
-                    {renderSentence(currentQuestion.sentence, currentQuestion.word.word)}
-                  </p>
-                  <p
-                    className={cn(
-                      "mb-4 min-h-[1.75rem] text-sm leading-snug italic transition-colors",
-                      answers[currentQuestion.word.id]?.state &&
-                        answers[currentQuestion.word.id]?.state !== "idle"
-                        ? "text-gray-500"
-                        : "text-gray-300",
-                    )}
-                  >
-                    {answers[currentQuestion.word.id]?.state &&
-                    answers[currentQuestion.word.id]?.state !== "idle"
-                      ? currentQuestion.translation
-                      : "　"}
-                  </p>
-                      <div className="space-y-3">
-                        {currentQuestion.choices.map((choice) => {
-                          const visual = choiceVisual(choice, answers[currentQuestion.word.id]);
-                          const sheet = answers[currentQuestion.word.id];
-                          const answered = sheet?.state !== "idle";
-                          return (
-                            <button
-                              key={choice.id}
-                              type="button"
-                              onClick={() => handleChoice(choice)}
-                              className={cn(
-                                "w-full text-left p-4 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors text-gray-700 flex items-center justify-between",
-                                visual,
-                              )}
-                            >
-                              <span>{choice.label}</span>
+                <div
+                  className={cn(
+                    "relative overflow-hidden rounded-lg p-6 border shadow-xl select-none",
+                    swipeEnabled ? "cursor-grab active:cursor-grabbing" : "cursor-default",
+                  )}
+                  style={cardStyle}
+                  onPointerDown={swipeEnabled ? handlePointerDown : undefined}
+                  onPointerMove={swipeEnabled ? handlePointerMove : undefined}
+                  onPointerUp={swipeEnabled ? handlePointerUp : undefined}
+                  onPointerCancel={swipeEnabled ? handlePointerCancel : undefined}
+                >
+                  <div className="relative z-10 space-y-4">
+                    <p className="text-gray-700 leading-relaxed text-lg">
+                      {renderSentence(currentQuestion.sentence, currentQuestion.word.word)}
+                    </p>
+                    <p
+                      className={cn(
+                        "min-h-[1.75rem] text-sm leading-snug transition-colors",
+                        answers[currentQuestion.word.id]?.state &&
+                          answers[currentQuestion.word.id]?.state !== "idle"
+                          ? "text-gray-500"
+                          : "text-gray-300",
+                      )}
+                    >
+                      {answers[currentQuestion.word.id]?.state &&
+                      answers[currentQuestion.word.id]?.state !== "idle"
+                        ? currentQuestion.translation
+                        : "　"}
+                    </p>
+                    <div className="space-y-3">
+                      {currentQuestion.choices.map((choice) => {
+                        const visual = choiceVisual(choice, answers[currentQuestion.word.id]);
+                        const sheet = answers[currentQuestion.word.id];
+                        const answered = sheet?.state !== "idle";
+                        return (
+                          <button
+                            key={choice.id}
+                            type="button"
+                            onClick={() => handleChoice(choice)}
+                            className={cn(
+                              "w-full text-left p-4 rounded-lg border text-gray-700 flex items-center justify-between font-[450] text-[1.1rem] select-none",
+                              visual,
+                            )}
+                          >
+                            <span>{choice.label}</span>
                             {answered && sheet?.state === "correct" && sheet.choiceId === choice.id && (
                               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                             )}
-                            </button>
-                          );
-                        })}
-                      </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {swipeIndicator && (
+                    <div className="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center gap-2">
+                      {swipeIndicator.direction === "left" && (
+                        <>
+                          <div
+                            className="w-0 h-0 border-t-[34px] border-t-transparent border-r-[70px] border-b-[34px] border-b-transparent"
+                            style={{ borderRightColor: swipeIndicator.color, opacity: swipeIndicator.progress }}
+                          />
+                          <span
+                            className="text-2xl font-bold"
+                            style={{ color: swipeIndicator.color, opacity: swipeIndicator.progress }}
+                          >
+                            {swipeIndicator.label}
+                          </span>
+                        </>
+                      )}
+                      {swipeIndicator.direction === "right" && (
+                        <>
+                          <div
+                            className="w-0 h-0 border-t-[34px] border-t-transparent border-l-[70px] border-b-[34px] border-b-transparent"
+                            style={{ borderLeftColor: swipeIndicator.color, opacity: swipeIndicator.progress }}
+                          />
+                          <span
+                            className="text-2xl font-bold"
+                            style={{ color: swipeIndicator.color, opacity: swipeIndicator.progress }}
+                          >
+                            {swipeIndicator.label}
+                          </span>
+                        </>
+                      )}
+                      {swipeIndicator.direction === "up" && (
+                        <>
+                          <div
+                            className="w-0 h-0 border-l-[34px] border-l-transparent border-r-[34px] border-r-transparent border-b-[70px]"
+                            style={{ borderBottomColor: swipeIndicator.color, opacity: swipeIndicator.progress }}
+                          />
+                          <span
+                            className="text-2xl font-bold"
+                            style={{ color: swipeIndicator.color, opacity: swipeIndicator.progress }}
+                          >
+                            {swipeIndicator.label}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="text-sm text-gray-500">問題を読み込めませんでした。</p>
@@ -247,7 +462,6 @@ export default function SessionPage() {
                 <FeedbackPanel
                   question={currentQuestion}
                   sheet={answers[currentQuestion.word.id]}
-                  pool={plan?.words ?? []}
                 />
               ) : (
                 <p className="text-sm text-gray-500">フィードバックを準備しています…</p>
@@ -281,55 +495,51 @@ function choiceVisual(choice: Choice, sheet?: Answer) {
     return "";
   }
   if (choice.correct) {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "border-emerald-200 bg-emerald-50";
   }
   if (sheet.choiceId === choice.id) {
-    return "border-rose-200 bg-rose-50 text-rose-700";
+    return "border-rose-200 bg-rose-50";
   }
   return "opacity-60";
 }
 
-function FeedbackPanel({ question, sheet, pool }: { question: Question; sheet?: Answer; pool: SessionWord[] }) {
+function FeedbackPanel({ question, sheet }: { question: Question; sheet?: Answer }) {
   if (!sheet || sheet.state === "idle") {
     return (
-      <div className="space-y-3 text-sm text-gray-600">
-        <p className="font-semibold text-gray-900">静かに選択し、すぐに結果を確認。</p>
-        <p>Retentoは語源・類義語を事前生成し、回答直後に表示します。</p>
+      <div className="flex h-full flex-col items-center justify-center text-sm text-gray-600">
+        <p className="text-center text-base text-gray-500">選択肢を選んでください</p>
       </div>
     );
   }
 
   const correct = question.choices.find((choice) => choice.correct);
   const picked = question.choices.find((choice) => choice.id === sheet.choiceId);
-  const related = pool
-    .filter((item) => item.id !== question.word.id && item.meanings.length)
-    .slice(0, 2)
-    .map((item) => `${item.word}（${item.meanings[0]}）`)
-    .join("、");
 
   return (
-    <div className="space-y-4 text-sm">
-      <div
-        className={cn(
-          "rounded-2xl border px-4 py-4",
-          sheet.state === "correct"
-            ? "border-emerald-100 bg-emerald-50 text-emerald-700"
-            : "border-rose-100 bg-rose-50 text-rose-700",
+    <div className="space-y-3 text-sm text-foreground">
+      <div className="space-y-1">
+        <h3 className="text-lg font-semibold text-foreground mb-1">
+          {sheet.state === "correct" ? "正解！" : "不正解"}
+        </h3>
+        <p className="text-sm text-muted-foreground">正解: {correct?.label ?? "—"}</p>
+      </div>
+
+      <div className="space-y-3">
+        {sheet.state === "incorrect" && picked && (
+          <div className="space-y-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm">
+            <p className="text-xs font-semibold text-foreground">選んだ答え</p>
+            <p className="text-sm leading-relaxed text-foreground">
+              {picked.label}
+            </p>
+          </div>
         )}
-      >
-        <p className="text-xs font-semibold tracking-wide">{sheet.state === "correct" ? "正解" : "不正解"}</p>
-        <p className="text-lg font-semibold mt-1">{correct?.label ?? "-"}</p>
-        {sheet.state === "incorrect" && picked && <p className="mt-1 text-xs">選択: {picked.label}</p>}
-      </div>
-      <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-gray-700">
-        <p className="font-semibold text-gray-900">語源メモ</p>
-        <p className="mt-1 leading-relaxed">
-          {question.word.word} は {question.word.partOfSpeech ?? "語"}。Retentoは語源とニュアンスを先に生成し、待ち時間をなくします。
-        </p>
-      </div>
-      <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-gray-700">
-        <p className="font-semibold text-gray-900">関連語</p>
-        <p className="mt-1 leading-relaxed">{related || "関連語を準備しています"}</p>
+
+        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm">
+          <p className="text-xs font-semibold text-green-700">正解について</p>
+          <p className="mt-1 text-sm leading-relaxed text-foreground">
+            {correct?.label ?? "正解のフィードバックがありません"}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -370,4 +580,99 @@ function renderSentence(sentence: string, keyword: string) {
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const CONFIDENCE_BACKGROUND: Record<ConfidenceLevel, string> = {
+  none: "#ffffff",
+  forget: "#fee2e2",
+  iffy: "#fff7ed",
+  perfect: "#dcfce7",
+};
+
+const CONFIDENCE_BORDER: Record<ConfidenceLevel, string> = {
+  none: "#e5e7eb",
+  forget: "#f87171",
+  iffy: "#fb923c",
+  perfect: "#34d399",
+};
+
+const SWIPE_THRESHOLD = 80;
+
+const SWIPE_META = {
+  left: { label: "覚えてない", color: "#ef4444", level: "forget" as ConfidenceLevel },
+  right: { label: "微妙", color: "#f97316", level: "iffy" as ConfidenceLevel },
+  up: { label: "完璧", color: "#22c55e", level: "perfect" as ConfidenceLevel },
+} as const;
+
+const SWIPE_EXIT_TRANSFORMS: Record<Exclude<SwipeDirection, null>, string> = {
+  left: "translate3d(-150%, -8%, 0) rotate(-16deg)",
+  right: "translate3d(150%, -6%, 0) rotate(16deg)",
+  up: "translate3d(0, -150%, 0) rotate(-4deg)",
+};
+
+async function queueConfidenceRecord(wordId: number, level: ConfidenceLevel) {
+  // TODO: implement persistence/API call
+  return Promise.resolve({ wordId, level });
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const normalized = hex.replace("#", "");
+  const value = normalized.length === 3
+    ? normalized.split("").map((char) => char + char).join("")
+    : normalized;
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return [r, g, b];
+}
+
+function swipeDirectionToConfidence(direction: SwipeDirection): ConfidenceLevel {
+  if (!direction) return "none";
+  return SWIPE_META[direction].level;
+}
+
+function detectSwipe(offsetX: number, offsetY: number) {
+  const absX = Math.abs(offsetX);
+  const absY = Math.abs(offsetY);
+
+  if (offsetY < -SWIPE_THRESHOLD && absY > absX) {
+    return { direction: "up" as const, level: SWIPE_META.up.level };
+  }
+  if (offsetX < -SWIPE_THRESHOLD && absX > absY) {
+    return { direction: "left" as const, level: SWIPE_META.left.level };
+  }
+  if (offsetX > SWIPE_THRESHOLD && absX > absY) {
+    return { direction: "right" as const, level: SWIPE_META.right.level };
+  }
+  return null;
+}
+
+function getSwipeIndicator(isDragging: boolean, enabled: boolean, offset: { x: number; y: number }): SwipeIndicatorState | null {
+  if (!isDragging || !enabled) return null;
+  const { x, y } = offset;
+  const half = SWIPE_THRESHOLD / 2;
+
+  if (y < -half && Math.abs(y) > Math.abs(x)) {
+    const progress = Math.min(Math.abs(y) / SWIPE_THRESHOLD, 1);
+    return { direction: "up", label: SWIPE_META.up.label, color: SWIPE_META.up.color, progress };
+  }
+  if (x < -half && Math.abs(x) > Math.abs(y)) {
+    const progress = Math.min(Math.abs(x) / SWIPE_THRESHOLD, 1);
+    return { direction: "left", label: SWIPE_META.left.label, color: SWIPE_META.left.color, progress };
+  }
+  if (x > half && Math.abs(x) > Math.abs(y)) {
+    const progress = Math.min(Math.abs(x) / SWIPE_THRESHOLD, 1);
+    return { direction: "right", label: SWIPE_META.right.label, color: SWIPE_META.right.color, progress };
+  }
+  return null;
+}
+
+function rgbaFromHex(colorHex: string, alpha: number) {
+  const [r, g, b] = hexToRgb(colorHex);
+  const clamped = Math.min(Math.max(alpha, 0), 1);
+  return `rgba(${r}, ${g}, ${b}, ${clamped})`;
+}
+
+function shadowFromHex(colorHex: string, alpha: number) {
+  return rgbaFromHex(colorHex, Math.min(Math.max(alpha, 0), 0.35));
 }

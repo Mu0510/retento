@@ -1,0 +1,25 @@
+{
+  "query": "SELECT id, openId, createdAt FROM users ORDER BY id",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3sWkSgWpVHhWrK5.da53580d88d6 --database JaSyYjpqHW5rrvhiJ2bj3J --execute SELECT id, openId, createdAt FROM users ORDER BY id",
+  "rows": [
+    {
+      "id": "1",
+      "openId": "bmTcBEP8zht57z7LxT7Dm2",
+      "createdAt": "2025-11-07 17:00:16"
+    },
+    {
+      "id": "90001",
+      "openId": "bKJoqcQsCfmHydzdsdZg8B",
+      "createdAt": "2025-11-07 22:02:20"
+    },
+    {
+      "id": "1800001",
+      "openId": "AMCGNoZ8Sa9tHKam7LHUfq",
+      "createdAt": "2025-11-09 23:11:38"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\topenId\tcreatedAt\n1\tbmTcBEP8zht57z7LxT7Dm2\t2025-11-07 17:00:16\n90001\tbKJoqcQsCfmHydzdsdZg8B\t2025-11-07 22:02:20\n1800001\tAMCGNoZ8Sa9tHKam7LHUfq\t2025-11-09 23:11:38\n",
+  "stderr": "",
+  "execution_time_ms": 1547
+}

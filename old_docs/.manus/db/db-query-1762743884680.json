@@ -1,0 +1,16 @@
+{
+  "query": "SELECT id, userId, LEFT(questionsData, 500) as data_preview, usedAt FROM pre_generated_sessions WHERE userId = 1 ORDER BY createdAt DESC LIMIT 1",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3sWkSgWpVHhWrK5.da53580d88d6 --database JaSyYjpqHW5rrvhiJ2bj3J --execute SELECT id, userId, LEFT(questionsData, 500) as data_preview, usedAt FROM pre_generated_sessions WHERE userId = 1 ORDER BY createdAt DESC LIMIT 1",
+  "rows": [
+    {
+      "id": "360004",
+      "userId": "1",
+      "data_preview": "[{\"wordIndex\":1,\"sentence\":\"The price <u>range</u> for this item is very wide.\",\"sentenceJapanese\":\"この商品の価格の範囲は非常に広い。\",\"wrongChoices\":[\"領域\",\"順序\",\"射程\"],\"feedbacks\":{\"correct\":\"rangeは「並び」「列」から転じて、その端から端までの「幅」や「範囲」を意味します。動詞としては「及ぶ」。「山脈」もmountain rangeです。幅広い知識（wide range of knowledge）のように使います。\",\"choice1\":\"領域はarea, domain, territoryなどが適切です。rangeは連続的な広がりや幅を示しますが、領域は特定の区切られた場所や分野を指すことが多いです。\",\"choice2\":\"順序はorderやsequenceが適しています。rangeは「並び」の意味もありますが、名詞の主要な意味は「範囲」や「幅」です。順序を表す場合はあまり使いません。\",\"choice3\":\"射程もran",
+      "usedAt": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tuserId\tdata_preview\tusedAt\n360004\t1\t[{\"wordIndex\":1,\"sentence\":\"The price <u>range</u> for this item is very wide.\",\"sentenceJapanese\":\"この商品の価格の範囲は非常に広い。\",\"wrongChoices\":[\"領域\",\"順序\",\"射程\"],\"feedbacks\":{\"correct\":\"rangeは「並び」「列」から転じて、その端から端までの「幅」や「範囲」を意味します。動詞としては「及ぶ」。「山脈」もmountain rangeです。幅広い知識（wide range of knowledge）のように使います。\",\"choice1\":\"領域はarea, domain, territoryなどが適切です。rangeは連続的な広がりや幅を示しますが、領域は特定の区切られた場所や分野を指すことが多いです。\",\"choice2\":\"順序はorderやsequenceが適しています。rangeは「並び」の意味もありますが、名詞の主要な意味は「範囲」や「幅」です。順序を表す場合はあまり使いません。\",\"choice3\":\"射程もran\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 2296
+}

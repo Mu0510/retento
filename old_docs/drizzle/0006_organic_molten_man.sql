@@ -1,0 +1,1 @@
+ALTER TABLE `user_word_progress` MODIFY COLUMN `confidenceLevel` enum('not_learned','uncertain','perfect');
