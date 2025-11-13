@@ -44,7 +44,7 @@ const vocabularyList: VocabularyEntry[] = loadVocabulary();
 const vocabularyById = new Map(vocabularyList.map((entry) => [entry.id, entry]));
 const embeddingsById = loadEmbeddings();
 
-const DEFAULT_SESSION_SIZE = 10;
+const DEFAULT_SESSION_SIZE = 5;
 const MIN_SCORE = 5;
 const MAX_SCORE = 10000;
 const SCORE_WINDOW = 400;
