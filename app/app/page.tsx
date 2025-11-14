@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSession, signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,6 +16,7 @@ export default function AppHome() {
   const [lastDiff, setLastDiff] = useState<number | null>(null);
   const [debugLog, setDebugLog] = useState<string>("デバッグログ:");
 
+  const router = useRouter();
   const fetchScore = useCallback(async () => {
     if (!isAuthenticated) return;
     setLoading(true);
@@ -122,6 +124,23 @@ export default function AppHome() {
                 <Button variant="ghost" className="w-full text-left" onClick={() => window.location.assign('/app/session')}>
                   セッションを開始する →
                 </Button>
+                <div className="mt-4 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white p-4 shadow-lg shadow-emerald-200/40">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-600">初回ユーザーレベルテスト</p>
+                      <p className="text-sm text-gray-600">
+                        まだテストを受けていない方は、最初の語彙力を推定する 30 問でスタート地点を可視化できます。
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => router.push("/initial-test")}
+                      className="text-emerald-600"
+                    >
+                      初回テストを受ける
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
             {isAuthenticated && (

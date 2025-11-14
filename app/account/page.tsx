@@ -1,6 +1,78 @@
-import Link from 'next/link';
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
+
+type AuthMethod = {
+  provider: string;
+  provider_user_id: string;
+  email: string;
+  is_primary: boolean;
+  created_at: string;
+};
 
 export default function AccountSettingsPage() {
+  const { data: session } = useSession();
+  const [methods, setMethods] = useState<AuthMethod[]>([]);
+  const [password, setPassword] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+  const [updating, setUpdating] = useState(false);
+
+  function loadMethods() {
+    return (async () => {
+      try {
+        const res = await fetch("/api/account/auth-methods");
+        if (!res.ok) throw new Error("認証情報が取得できません");
+        const json = await res.json();
+        setMethods(json.methods ?? []);
+      } catch (error) {
+        console.error(error);
+      }
+    })();
+  }
+
+  useEffect(() => {
+    void loadMethods();
+  }, []);
+
+  const handlePasswordUpdate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!password || password.length < 8) {
+      setStatus("パスワードは8文字以上で入力してください");
+      return;
+    }
+    setUpdating(true);
+    setStatus(null);
+    try {
+      const res = await fetch("/api/account/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error ?? "更新に失敗しました");
+      }
+      setStatus("パスワードを更新しました");
+      setPassword("");
+      await loadMethods();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "エラーが発生しました");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const loadMethods = async () => {
+    try {
+      const res = await fetch("/api/account/auth-methods");
+      if (!res.ok) throw new Error("認証情報が取得できません");
+      const json = await res.json();
+      setMethods(json.methods ?? []);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <div className="mx-auto w-[90vw] max-w-4xl px-4 py-16 sm:py-20">
@@ -11,35 +83,70 @@ export default function AccountSettingsPage() {
               アカウント設定
             </h1>
             <p className="text-sm text-gray-600 leading-relaxed">
-              Retentoの学習セッションや通知は、科学的根拠と摩擦ゼロのUXをベースに設計されています。
-              アカウント情報を確認して、好みの通知やセッションリズムに合わせてみましょう。
+              メールアドレスとパスワードで安全にログインできるように、認証情報を整理してあります。
             </p>
+            {session?.user?.email && (
+              <p className="text-sm text-slate-500">ログイン中のメール: {session.user.email}</p>
+            )}
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-2">
-            <article className="space-y-3 rounded-2xl border border-gray-100 bg-gray-50/60 p-5 shadow-sm">
-              <h2 className="text-sm font-semibold tracking-tight text-gray-900">プロフィール</h2>
-              <p className="text-sm text-gray-600">
-                名前やメールアドレス、プロフィール画像などの基本情報をここから更新できます。
-              </p>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
-                すっきりとした入力欄で、余裕を持って変更
-              </p>
-            </article>
-            <article className="space-y-3 rounded-2xl border border-gray-100 bg-gray-50/60 p-5 shadow-sm">
-              <h2 className="text-sm font-semibold tracking-tight text-gray-900">通知・セキュリティ</h2>
-              <p className="text-sm text-gray-600">
-                ゲーム感のあるランキングも通知のオンとオフでコントロール。セッションを妨げないタイミングでお届けします。
-              </p>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
-                通知も、Retentoらしい静かなプロフェッショナルさ
-              </p>
-            </article>
+          <div className="space-y-6 rounded-2xl border border-gray-100 bg-white/90 p-6">
+            <h2 className="text-lg font-semibold text-slate-900">認証情報</h2>
+            <p className="text-sm text-slate-500">
+              現在のログイン方法と、追加された認証プロバイダーを確認できます。
+            </p>
+            <div className="space-y-3">
+              {methods.map((method) => (
+                <div key={`${method.provider}-${method.provider_user_id}`} className="p-4 rounded-2xl border border-gray-200 bg-slate-50">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {method.provider === "credentials" ? "メール / パスワード" : method.provider}
+                    </p>
+                    {method.is_primary && (
+                      <span className="text-xs font-semibold text-emerald-600">主要</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500">{method.email}</p>
+                  <p className="text-xs text-slate-400">登録: {new Date(method.created_at).toLocaleString()}</p>
+                </div>
+              ))}
+              {methods.length === 0 && (
+                <p className="text-sm text-slate-500">認証方法を取得中です…</p>
+              )}
+            </div>
           </div>
+
+          <form
+            onSubmit={handlePasswordUpdate}
+            className="space-y-4 rounded-2xl border border-gray-100 bg-white/90 p-6 shadow-sm"
+          >
+            <h2 className="text-lg font-semibold text-slate-900">パスワードの設定</h2>
+            <p className="text-sm text-slate-500">
+              Google などの OAuth で作成したアカウントにも、ここからパスワードを設定できます。
+            </p>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-500">新しいパスワード</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm"
+                placeholder="8文字以上のパスワード"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={updating}
+              className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+            >
+              {updating ? "更新中…" : "パスワードを保存"}
+            </button>
+            {status && <p className="text-sm text-rose-500">{status}</p>}
+          </form>
 
           <div className="space-y-4 rounded-2xl border border-gray-100 bg-white/90 p-6">
             <p className="text-sm text-gray-600">
-              ご希望の設定がすぐに反映されるよう、必要な情報をそっと整えています。アカウント変更は何度でも可能です。
+              ご希望の設定がすぐに反映されるよう、必要な情報をそっと整えています。
             </p>
             <Link
               href="/"

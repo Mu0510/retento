@@ -1,0 +1,2 @@
+ALTER TABLE public.user_word_confidences
+ADD COLUMN IF NOT EXISTS auto_marked BOOLEAN NOT NULL DEFAULT FALSE;

@@ -4,6 +4,7 @@ import { getVocabularyById } from "@/lib/vocabulary-data";
 
 const USER_PROFILES_TABLE = "user_profiles";
 const USER_WORD_CONFIDENCE_TABLE = "user_word_confidences";
+const PUBLIC_USERS_TABLE = "users";
 
 export type StoredConfidenceLevel = "none" | "forget" | "iffy" | "perfect";
 
@@ -21,6 +22,7 @@ export type UserWordConfidenceRow = {
   times_answered?: number | null;
   next_review_at?: string | null;
   last_answered_at?: string | null;
+  auto_marked?: boolean | null;
 };
 
 export type ConfidenceSnapshot = {
@@ -43,6 +45,8 @@ export async function ensureUserProfile(userId: string): Promise<UserProfileRow>
     return data as UserProfileRow;
   }
 
+  await ensurePublicUser(userId);
+
   const insertPayload: UserProfileRow = {
     user_id: userId,
     word_score: 0,
@@ -61,6 +65,85 @@ export async function ensureUserProfile(userId: string): Promise<UserProfileRow>
   return inserted as UserProfileRow;
 }
 
+export async function ensurePublicUser(userId: string): Promise<void> {
+  try {
+    const { data, error } = await supabaseAdminClient
+      .from(PUBLIC_USERS_TABLE)
+      .select("id")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("[ensurePublicUser] failed to read public users row", error.message);
+      return;
+    }
+
+    if (data) {
+      return;
+    }
+
+    let fallbackEmail: string | undefined;
+    if (typeof supabaseAdminClient.auth.admin?.getUserById === "function") {
+      const { data: authUser, error: authError } = await supabaseAdminClient.auth.admin.getUserById(userId);
+      if (authError) {
+        console.warn("[ensurePublicUser] failed to load auth user", authError.message);
+      } else {
+        fallbackEmail = authUser?.email ?? undefined;
+      }
+    }
+
+    const insertPayload: Record<string, unknown> = { id: userId };
+    if (fallbackEmail) {
+      insertPayload.email = fallbackEmail;
+    }
+
+    const { error: insertError } = await supabaseAdminClient
+      .from(PUBLIC_USERS_TABLE)
+      .insert(insertPayload);
+
+    if (insertError) {
+      console.warn("[ensurePublicUser] failed to create public users row", insertError.message);
+    }
+  } catch (error) {
+    console.warn("[ensurePublicUser] unexpected error", error);
+  }
+}
+
+const AUTH_METHODS_TABLE = "auth_methods";
+
+export type AuthMethodInput = {
+  userId: string;
+  provider: string;
+  providerUserId: string;
+  email?: string | null;
+  isPrimary?: boolean;
+  metadata?: Record<string, unknown>;
+};
+
+export async function registerAuthMethod(input: AuthMethodInput): Promise<void> {
+  const { userId, provider, providerUserId, email, isPrimary = false, metadata = {} } = input;
+  try {
+    const { error } = await supabaseAdminClient
+      .from(AUTH_METHODS_TABLE)
+      .upsert(
+        {
+          user_id: userId,
+          provider,
+          provider_user_id: providerUserId ?? userId,
+          email: email ?? undefined,
+          is_primary: isPrimary,
+          metadata,
+        },
+        { onConflict: "user_id,provider" },
+      );
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
+    console.warn("[registerAuthMethod] skipped", error instanceof Error ? error.message : error);
+  }
+}
+
 export async function fetchConfidenceSnapshot(userId: string): Promise<ConfidenceSnapshot> {
   const profile = await ensureUserProfile(userId);
   const { data, error } = await supabaseAdminClient
@@ -73,6 +156,24 @@ export async function fetchConfidenceSnapshot(userId: string): Promise<Confidenc
   }
 
   return { profile, rows: (data as UserWordConfidenceRow[]) ?? [] };
+}
+
+export async function fetchConfidenceRowsForWords(
+  userId: string,
+  wordIds: number[],
+): Promise<UserWordConfidenceRow[]> {
+  if (!wordIds.length) return [];
+  const { data, error } = await supabaseAdminClient
+    .from(USER_WORD_CONFIDENCE_TABLE)
+    .select("word_id, confidence, auto_marked")
+    .eq("user_id", userId)
+    .in("word_id", wordIds);
+
+  if (error) {
+    throw new Error(`failed to load confidence rows: ${error.message}`);
+  }
+
+  return (data as UserWordConfidenceRow[]) ?? [];
 }
 
 export function calculateUserScore(rows: UserWordConfidenceRow[]): number {
@@ -164,6 +265,7 @@ export async function upsertConfidenceRows(rows: UserWordConfidenceRow[]): Promi
     times_answered: row.times_answered ?? null,
     next_review_at: row.next_review_at ?? null,
     last_answered_at: row.last_answered_at ?? new Date().toISOString(),
+    auto_marked: row.auto_marked ?? false,
   }));
 
   const { error } = await supabaseAdminClient

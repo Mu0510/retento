@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
       confidence: result.confidence,
       last_answered_at: new Date().toISOString(),
       times_answered: 1,
+      auto_marked: false,
     }));
 
     await upsertConfidenceRows(rows);

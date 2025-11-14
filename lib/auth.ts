@@ -4,6 +4,7 @@ import { SupabaseAdapter } from "@next-auth/supabase-adapter";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { hasSupabaseAdminConfig, supabaseAdminClient, supabaseAdminConfig } from "./supabase-admin";
+import { ensurePublicUser, registerAuthMethod } from "@/lib/services/user-progress";
 
 const formatUserName = (name?: string) => name?.trim() || undefined;
 
@@ -59,6 +60,21 @@ export const authOptions: NextAuthOptions = {
     signIn: "/auth/login",
   },
   callbacks: {
+    async signIn({ user, account }) {
+      if (!user?.id) return false;
+      await ensurePublicUser(user.id);
+      if (account) {
+        await registerAuthMethod({
+          userId: user.id,
+          provider: account.provider,
+          providerUserId: account.providerAccountId ?? user.id,
+          email: user.email ?? undefined,
+          isPrimary: account.provider === "credentials",
+        });
+      }
+      return true;
+    },
+
     async jwt({ token, user }) {
       if (user && typeof (user as AdapterUser | undefined)?.id === "string") {
         token.id = token.id ?? (user as AdapterUser).id;
@@ -82,12 +98,16 @@ export const authOptions: NextAuthOptions = {
       ];
 
       const userId = candidateIds.find((value) => typeof value === "string" && value.trim().length > 0);
+      const email = adapterUser?.email ?? normalizedSession.user?.email ?? token?.email;
+      const name = adapterUser?.name ?? normalizedSession.user?.name;
 
       return {
         ...normalizedSession,
         user: {
           ...(normalizedSession.user ?? {}),
           ...(userId ? { id: userId } : {}),
+          ...(email ? { email } : {}),
+          ...(name ? { name } : {}),
         },
       };
     },
