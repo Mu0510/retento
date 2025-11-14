@@ -264,7 +264,14 @@ function sanitizeSentence(sentence: string, word: string): string {
   if (!sentence) {
     return `Please study ${word}.`;
   }
-  return stripHtml(sentence);
+  // Allow <u> around the keyword while trimming other tags/spaces
+  const preserved = sentence
+    .replace(/<u>/gi, "[[U_OPEN]]")
+    .replace(/<\/u>/gi, "[[U_CLOSE]]");
+  const stripped = stripHtml(preserved);
+  return stripped
+    .replace(/\[\[U_OPEN\]\]/g, "<u>")
+    .replace(/\[\[U_CLOSE\]\]/g, "</u>");
 }
 
 function shuffleArray<T>(items: T[]): T[] {

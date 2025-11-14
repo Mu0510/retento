@@ -43,6 +43,11 @@ export default function SessionPage() {
   const [completedCount, setCompletedCount] = useState(0);
   const [isSessionComplete, setIsSessionComplete] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [scoreBefore, setScoreBefore] = useState<number>(0);
+  const [scoreAfter, setScoreAfter] = useState<number>(0);
+  const [scoreDiff, setScoreDiff] = useState(0);
   const [swipeDirection, setSwipeDirection] = useState<SwipeDirection>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -87,6 +92,8 @@ export default function SessionPage() {
     setConversation(null);
     setIsSessionComplete(false);
     setFeedback(null);
+    setFeedbackError(null);
+    setFeedbackLoading(false);
     feedbackRequestedRef.current = false;
     try {
       const res = await fetch("/api/sessions/plan", {
@@ -97,6 +104,9 @@ export default function SessionPage() {
       if (!res.ok) throw new Error("セッションを生成できませんでした");
       const data = (await res.json()) as SessionPlanResponse;
       setPlan(data);
+      setScoreBefore(userScore);
+      setScoreAfter(userScore);
+      setScoreDiff(0);
 
       const questionRes = await fetch("/api/sessions/questions", {
         method: "POST",
@@ -153,11 +163,17 @@ export default function SessionPage() {
   const handleRestart = useCallback(() => {
     setIsSessionComplete(false);
     setFeedback(null);
-    setFeedbackError(null);
-    setFeedbackLoading(false);
     feedbackRequestedRef.current = false;
+    setScoreBefore(0);
+    setScoreAfter(0);
+    setScoreDiff(0);
     void fetchPlan();
   }, [fetchPlan]);
+
+  const feedbackResults = useMemo(
+    () => buildFeedbackResults(questions, answers, confidenceMap),
+    [questions, answers, confidenceMap],
+  );
 
   useEffect(() => {
     if (!isSessionComplete || !questions.length) {
@@ -166,17 +182,46 @@ export default function SessionPage() {
     if (feedbackRequestedRef.current) {
       return;
     }
-    const results = buildFeedbackResults(questions, answers, confidenceMap);
-    if (!results.length) {
+    if (!feedbackResults.length) {
       return;
     }
     feedbackRequestedRef.current = true;
+    setFeedbackLoading(true);
+    setFeedbackError(null);
     void (async () => {
+      try {
+        const submitResponse = await fetch("/api/sessions/answers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            results: feedbackResults.map((result) => ({
+              wordId: result.wordId,
+              confidence: result.confidence,
+              isCorrect: result.isCorrect,
+            })),
+          }),
+        });
+        if (!submitResponse.ok) {
+          throw new Error("結果記録に失敗しました");
+        }
+        const submitData = (await submitResponse.json()) as {
+          scoreBefore: number;
+          scoreAfter: number;
+          scoreDiff: number;
+        };
+        setScoreBefore(submitData.scoreBefore);
+        setScoreAfter(submitData.scoreAfter);
+        setScoreDiff(submitData.scoreDiff);
+      } catch (err) {
+        setScoreDiff(0);
+        setFeedback(err instanceof Error ? err.message : "スコア更新に失敗しました");
+      }
+
       try {
         const response = await fetch("/api/sessions/feedback", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ conversation, results }),
+          body: JSON.stringify({ conversation, results: feedbackResults }),
         });
         if (!response.ok) {
           throw new Error("フィードバック生成に失敗しました");
@@ -184,10 +229,12 @@ export default function SessionPage() {
         const data = (await response.json()) as { feedback?: string };
         setFeedback(data.feedback ?? null);
       } catch (err) {
-        setFeedback(err instanceof Error ? err.message : "フィードバック生成中にエラーが発生しました");
+        setFeedbackError(err instanceof Error ? err.message : "フィードバック生成中にエラーが発生しました");
+      } finally {
+        setFeedbackLoading(false);
       }
     })();
-  }, [answers, confidenceMap, conversation, isSessionComplete, questions]);
+  }, [conversation, feedbackResults, isSessionComplete, questions.length]);
 
   const currentQuestion = questions[currentIndex];
   const progress = questions.length ? (currentIndex + 1) / questions.length : 0;
@@ -350,26 +397,24 @@ export default function SessionPage() {
     swipeEnabled,
   ]);
 
-  const sessionResults = results.map((result) => ({
+  const sessionResults = feedbackResults.map((result) => ({
     word: result.word,
     meaning: result.meaning,
     isCorrect: result.isCorrect,
     confidenceLevel:
-      result.isCorrect && result.confidence === "perfect"
+      result.confidence === "perfect"
         ? "perfect"
-        : result.isCorrect
+        : result.confidence === "iffy"
           ? "uncertain"
           : "not_learned",
   }));
-
-  const scoreBefore = Number.isFinite(userScore) ? userScore : 0;
-  const scoreAfter = scoreBefore;
-  const scoreDiff = 0;
 
   if (isSessionComplete) {
     return (
       <SessionResult
         feedback={feedback ?? null}
+        feedbackLoading={feedbackLoading}
+        feedbackError={feedbackError}
         scoreBefore={scoreBefore}
         scoreAfter={scoreAfter}
         scoreDiff={scoreDiff}
@@ -617,17 +662,49 @@ function StateCard({ icon, message, actionLabel, onAction }: { icon: ReactNode; 
 }
 
 function renderSentence(sentence: string, keyword: string) {
-  const pattern = new RegExp(`(\\b${escapeRegExp(keyword)}\\b)`, "i");
-  const parts = sentence.split(pattern);
-  return parts.map((part, index) => {
-    if (part.toLowerCase() === keyword.toLowerCase()) {
+  const normalized = sentence.replace(/\s+/g, " ").trim();
+  const withSpacing = normalized
+    .replace(/([^\s])<u>/g, "$1 <u>")
+    .replace(/<\/u>([^\s])/g, "</u> $1");
+  const matches: { text: string; underline: boolean }[] = [];
+  let lastIndex = 0;
+  const regex = /<u>([\s\S]*?)<\/u>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(withSpacing)) !== null) {
+    if (match.index > lastIndex) {
+      matches.push({ text: withSpacing.slice(lastIndex, match.index), underline: false });
+    }
+    matches.push({ text: match[1], underline: true });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < withSpacing.length) {
+    matches.push({ text: withSpacing.slice(lastIndex), underline: false });
+  }
+
+  if (matches.length === 0) {
+    const pattern = new RegExp(`(\\b${escapeRegExp(keyword)}\\b)`, "i");
+    const parts = normalized.split(pattern);
+    return parts.map((part, index) => {
+      if (part.toLowerCase() === keyword.toLowerCase()) {
+        return (
+          <span key={`${part}-${index}`} className="border-b-2 border-[#c2255d]">
+            {part}
+          </span>
+        );
+      }
+      return <span key={`${part}-${index}`}>{part}</span>;
+    });
+  }
+
+  return matches.map((segment, index) => {
+    if (segment.underline) {
       return (
-        <span key={`${part}-${index}`} className="border-b-2 border-[#c2255d]">
-          {part}
+        <span key={`underline-${index}`} className="border-b-2 border-[#c2255d]">
+          {segment.text}
         </span>
       );
     }
-    return <span key={`${part}-${index}`}>{part}</span>;
+    return <span key={`text-${index}`}>{segment.text}</span>;
   });
 }
 
@@ -740,6 +817,7 @@ type FeedbackResultPayload = {
   correctAnswer: string;
   sentence: string;
   translation: string;
+  wordId: number;
 };
 
 function buildFeedbackResults(
@@ -761,6 +839,7 @@ function buildFeedbackResults(
       correctAnswer: correct?.label ?? "",
       sentence: question.sentence,
       translation: question.translation,
+      wordId: question.word.id,
     };
   });
 }

@@ -5,6 +5,8 @@ import { BookOpen, Lightbulb } from "lucide-react";
 
 interface SessionResultProps {
   feedback: string | null;
+  feedbackLoading: boolean;
+  feedbackError: string | null;
   scoreBefore: number;
   scoreAfter: number;
   scoreDiff: number;
@@ -125,16 +127,18 @@ export default function SessionResult({
               <Lightbulb className="w-5 h-5 text-primary" />
               <h3 className="font-semibold text-foreground">学習アドバイス</h3>
             </div>
-            {feedback ? (
-              <p className="text-sm leading-relaxed text-foreground">{feedback}</p>
-            ) : (
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-full bg-muted" />
-                <Skeleton className="h-4 w-full bg-muted" />
-                <Skeleton className="h-4 w-3/4 bg-muted" />
-              </div>
-            )}
-          </div>
+              {feedbackLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full bg-muted" />
+                  <Skeleton className="h-4 w-full bg-muted" />
+                  <Skeleton className="h-4 w-3/4 bg-muted" />
+                </div>
+              ) : feedbackError ? (
+                <p className="text-sm text-rose-500">{feedbackError}</p>
+              ) : (
+                <p className="text-sm leading-relaxed text-foreground">{feedback}</p>
+              )}
+            </div>
 
           <div className="flex gap-3">
             <Button onClick={onNextSession} className="flex-1" size="lg">
