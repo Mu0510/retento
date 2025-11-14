@@ -18,6 +18,7 @@ import {
   Zap,
   Target,
   TrendingUp,
+  Loader2,
 } from 'lucide-react';
 import { ImageWithFallback } from '@/components/ImageWithFallback';
 import { useSession, signOut } from 'next-auth/react';
@@ -193,6 +194,56 @@ export default function Page() {
     router.push('/');
   }, [router]);
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      void fetchScore();
+    }
+  }, [isAuthenticated, fetchScore]);
+
+  const [profileScore, setProfileScore] = useState<number | null>(null);
+  const [scoreLoading, setScoreLoading] = useState(false);
+  const [scoreError, setScoreError] = useState<string | null>(null);
+  const [lastDiff, setLastDiff] = useState<number | null>(null);
+
+  const fetchScore = useCallback(async () => {
+    setScoreLoading(true);
+    setScoreError(null);
+    try {
+      const response = await fetch('/api/user/score');
+      if (!response.ok) {
+        throw new Error('スコア取得に失敗しました');
+      }
+      const data = (await response.json()) as { score?: number };
+      setProfileScore(typeof data.score === 'number' ? data.score : 0);
+      setLastDiff(null);
+    } catch (error) {
+      setScoreError(error instanceof Error ? error.message : 'スコア取得に失敗しました');
+    } finally {
+      setScoreLoading(false);
+    }
+  }, []);
+
+  const refreshScore = useCallback(async () => {
+    if (!session?.user?.id) return;
+    setScoreLoading(true);
+    setScoreError(null);
+    try {
+      const response = await fetch(`/api/users/${session.user.id}/recalculate-score`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error('スコア再計算に失敗しました');
+      }
+      const data = (await response.json()) as { scoreBefore: number; scoreAfter: number; scoreDiff: number };
+      setProfileScore(data.scoreAfter);
+      setLastDiff(data.scoreDiff);
+    } catch (error) {
+      setScoreError(error instanceof Error ? error.message : 'スコア再計算に失敗しました');
+    } finally {
+      setScoreLoading(false);
+    }
+  }, [session]);
+
   const navigationItems = useMemo(
     () => [
       {
@@ -332,6 +383,47 @@ export default function Page() {
           </div>
         </div>
       </section>
+
+      {isAuthenticated && (
+        <section className="mx-auto w-[90vw] max-w-[1100px] px-4 sm:px-6 lg:px-8 mt-8">
+          <Card className="border border-border shadow-lg">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6">
+              <div>
+                <p className="text-sm text-muted-foreground">現在の単語力スコア</p>
+                <p className="text-3xl font-semibold text-gray-900">
+                  {scoreLoading ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="animate-spin w-5 h-5" />
+                      計算中...
+                    </span>
+                  ) : profileScore !== null ? (
+                    profileScore.toFixed(2)
+                  ) : (
+                    '—'
+                  )}
+                </p>
+                {lastDiff !== null && (
+                  <p className={`text-sm ${lastDiff >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                    {lastDiff >= 0 ? `+${lastDiff.toFixed(2)} 上昇` : `${lastDiff.toFixed(2)} 減少`}
+                  </p>
+                )}
+                {scoreError && <p className="text-xs text-rose-500 mt-1">{scoreError}</p>}
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button variant="outline" size="md" onClick={fetchScore} disabled={scoreLoading}>
+                  再読み込み
+                </Button>
+                <Button size="md" onClick={refreshScore} disabled={scoreLoading || !session?.user?.id}>
+                  スコアを再計算
+                </Button>
+              </div>
+            </div>
+            <p className="px-6 pb-4 text-sm text-gray-500">
+              「スコアを再計算」では、サーバー上に蓄積された `user_word_confidences` をもとに単語力を再評価します。
+            </p>
+          </Card>
+        </section>
+      )}
 
       {/* Core Concept Section */}
       <section id="concept" className="py-16 sm:py-24 bg-gray-50">
