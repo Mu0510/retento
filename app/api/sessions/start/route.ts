@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 
-import { authOptions } from "@/lib/auth";
+import { UnauthorizedError, requireSessionUser } from "@/lib/auth/session";
 import { resolveSessionForUser } from "@/lib/services/session-service";
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
-  if (!userId) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  let userId: string;
+  try {
+    ({ userId } = await requireSessionUser());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+    console.error("[SessionStart] failed to resolve session user", error);
+    return NextResponse.json({ error: "認証情報を確認できませんでした" }, { status: 500 });
   }
 
   let payload: { sessionSize?: number } = {};

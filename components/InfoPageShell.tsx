@@ -33,7 +33,7 @@ export default function InfoPageShell({
             {ctaLabel && ctaHref && (
               <div className="pt-2">
                 <Link href={ctaHref} className="inline-flex">
-                  <Button className="rounded-full bg-[#c2255d] text-white hover:bg-[#a01d4d]" size="md">
+                  <Button className="rounded-full bg-[#c2255d] text-white hover:bg-[#a01d4d]">
                     {ctaLabel}
                   </Button>
                 </Link>

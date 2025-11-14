@@ -108,10 +108,10 @@ export default function AppHome() {
               {error && <p className="text-xs text-rose-500 mt-1">{error}</p>}
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button variant="outline" size="md" onClick={fetchScore} disabled={loading}>
+              <Button variant="outline" onClick={fetchScore} disabled={loading}>
                 再読み込み
               </Button>
-                    <Button size="md" onClick={refreshScore} disabled={loading}>
+                    <Button onClick={refreshScore} disabled={loading}>
                       スコア再計算
                     </Button>
                   </div>

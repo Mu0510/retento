@@ -30,8 +30,8 @@ export type ConfidenceSnapshot = {
 
 export async function ensureUserProfile(userId: string): Promise<UserProfileRow> {
   const { data, error } = await supabaseAdminClient
-    .from<UserProfileRow>(USER_PROFILES_TABLE)
-    .select("*")
+    .from(USER_PROFILES_TABLE)
+    .select("user_id, word_score, created_at, updated_at")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -40,7 +40,7 @@ export async function ensureUserProfile(userId: string): Promise<UserProfileRow>
   }
 
   if (data) {
-    return data;
+    return data as UserProfileRow;
   }
 
   const insertPayload: UserProfileRow = {
@@ -49,22 +49,22 @@ export async function ensureUserProfile(userId: string): Promise<UserProfileRow>
   };
 
   const { data: inserted, error: insertError } = await supabaseAdminClient
-    .from<UserProfileRow>(USER_PROFILES_TABLE)
+    .from(USER_PROFILES_TABLE)
     .insert(insertPayload)
-    .select("*")
+    .select("user_id, word_score, created_at, updated_at")
     .single();
 
   if (insertError || !inserted) {
     throw new Error(insertError?.message ?? "failed to create user profile");
   }
 
-  return inserted;
+  return inserted as UserProfileRow;
 }
 
 export async function fetchConfidenceSnapshot(userId: string): Promise<ConfidenceSnapshot> {
   const profile = await ensureUserProfile(userId);
   const { data, error } = await supabaseAdminClient
-    .from<UserWordConfidenceRow>(USER_WORD_CONFIDENCE_TABLE)
+    .from(USER_WORD_CONFIDENCE_TABLE)
     .select("user_id, word_id, confidence, times_answered, next_review_at, last_answered_at")
     .eq("user_id", userId);
 
@@ -72,7 +72,7 @@ export async function fetchConfidenceSnapshot(userId: string): Promise<Confidenc
     throw new Error(`failed to load confidence snapshot: ${error.message}`);
   }
 
-  return { profile, rows: data ?? [] };
+  return { profile, rows: (data as UserWordConfidenceRow[]) ?? [] };
 }
 
 export function calculateUserScore(rows: UserWordConfidenceRow[]): number {

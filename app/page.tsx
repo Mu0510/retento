@@ -213,7 +213,6 @@ export default function Page() {
     () =>
       navigationItems.map((item) => ({
         label: item.label,
-        href: item.href,
         onClick: item.onClick,
       })),
     [navigationItems],

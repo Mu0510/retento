@@ -10,7 +10,9 @@ export async function POST(request: NextRequest) {
     }
     const sessionSize = payload.sessionSize;
     const reviewIds = Array.isArray(payload.reviewIds)
-      ? payload.reviewIds.map((value) => Number(value)).filter((value) => Number.isFinite(value))
+      ? (payload.reviewIds as unknown[])
+          .map((value) => (typeof value === "number" ? value : Number(value)))
+          .filter((value): value is number => Number.isFinite(value))
       : undefined;
     const options: SessionRequestOptions = {
       userScore,

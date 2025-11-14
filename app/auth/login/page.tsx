@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useState } from "react";
+import { Suspense, type FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 
-const socialProviders = [
+const socialProviders: Array<{ id: SocialProviderId; label: string; buttonClass: string }> = [
   {
     id: "google",
     label: "Google アカウントでログイン",
@@ -36,7 +36,7 @@ const GoogleIcon = () => (
   </svg>
 );
 
-export default function LoginPage() {
+function LoginPageContent() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
   const router = useRouter();
@@ -167,5 +167,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen" />}> 
+      <LoginPageContent />
+    </Suspense>
   );
 }

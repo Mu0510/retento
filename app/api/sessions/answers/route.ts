@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 
-import { authOptions } from "@/lib/auth";
+import { UnauthorizedError, requireSessionUser } from "@/lib/auth/session";
 import {
   calculateUserScore,
   fetchConfidenceSnapshot,
@@ -20,10 +19,15 @@ type SubmitBody = {
 };
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
-  if (!userId) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  let userId: string;
+  try {
+    ({ userId } = await requireSessionUser());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+    console.error("[SessionAnswers] failed to resolve session user", error);
+    return NextResponse.json({ error: "認証情報を確認できませんでした" }, { status: 500 });
   }
 
   let payload: SubmitBody;
@@ -37,26 +41,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "results が必要です" }, { status: 400 });
   }
 
-  const beforeSnapshot = await fetchConfidenceSnapshot(userId);
-  const beforeScore = beforeSnapshot.profile.word_score ?? 0;
+  try {
+    const beforeSnapshot = await fetchConfidenceSnapshot(userId);
+    const beforeScore = beforeSnapshot.profile.word_score ?? 0;
 
-  const rows = payload.results.map((result) => ({
-    user_id: userId,
-    word_id: result.wordId,
-    confidence: result.confidence,
-    last_answered_at: new Date().toISOString(),
-    times_answered: 1,
-  }));
+    const rows = payload.results.map((result) => ({
+      user_id: userId,
+      word_id: result.wordId,
+      confidence: result.confidence,
+      last_answered_at: new Date().toISOString(),
+      times_answered: 1,
+    }));
 
-  await upsertConfidenceRows(rows);
+    await upsertConfidenceRows(rows);
 
-  const afterSnapshot = await fetchConfidenceSnapshot(userId);
-  const afterScore = calculateUserScore(afterSnapshot.rows);
-  await upsertUserScore(userId, afterScore);
+    const afterSnapshot = await fetchConfidenceSnapshot(userId);
+    const afterScore = calculateUserScore(afterSnapshot.rows);
+    await upsertUserScore(userId, afterScore);
 
-  return NextResponse.json({
-    scoreBefore: beforeScore,
-    scoreAfter: afterScore,
-    scoreDiff: afterScore - beforeScore,
-  });
+    return NextResponse.json({
+      scoreBefore: beforeScore,
+      scoreAfter: afterScore,
+      scoreDiff: afterScore - beforeScore,
+    });
+  } catch (error) {
+    console.error("[SessionAnswers] failed to process answers", error);
+    return NextResponse.json({ error: "回答結果の処理に失敗しました" }, { status: 500 });
+  }
 }

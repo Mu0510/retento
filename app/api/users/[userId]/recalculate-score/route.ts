@@ -8,17 +8,21 @@ import {
   type UserWordConfidenceRow,
 } from "@/lib/services/user-progress";
 
-type RecalculateParams = {
+interface RecalculateParams {
   userId: string;
-};
+}
 
-export async function POST(request: NextRequest, { params }: { params: RecalculateParams }) {
-  const userId = params.userId;
+export async function POST(request: NextRequest, context: { params: Promise<RecalculateParams> }) {
+  const { userId } = await context.params;
   if (!userId) {
     return NextResponse.json({ error: "userId is required" }, { status: 400 });
   }
 
-  const { error: profileError } = await supabaseAdminClient.from("user_profiles").select("user_id").eq("user_id", userId).maybeSingle();
+  const { error: profileError } = await supabaseAdminClient
+    .from("user_profiles")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
   if (profileError) {
     return NextResponse.json({ error: profileError.message }, { status: 500 });
   }

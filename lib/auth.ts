@@ -1,16 +1,19 @@
-import type { NextAuthOptions } from "next-auth";
+import type { AdapterUser } from "next-auth/adapters";
+import type { NextAuthOptions, Session } from "next-auth";
 import { SupabaseAdapter } from "@next-auth/supabase-adapter";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
-import { supabaseAdminClient, supabaseAdminConfig } from "./supabase-admin";
+import { hasSupabaseAdminConfig, supabaseAdminClient, supabaseAdminConfig } from "./supabase-admin";
 
 const formatUserName = (name?: string) => name?.trim() || undefined;
 
 export const authOptions: NextAuthOptions = {
-  adapter: SupabaseAdapter({
-    url: supabaseAdminConfig.url,
-    secret: supabaseAdminConfig.secret,
-  }),
+  adapter: hasSupabaseAdminConfig
+    ? SupabaseAdapter({
+        url: supabaseAdminConfig.url,
+        secret: supabaseAdminConfig.secret,
+      })
+    : undefined,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
@@ -57,16 +60,29 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, user }) {
-      if (user) {
-        token.id = token.id ?? user.id;
-      } else if (!token.id && token.sub) {
+      if (user && typeof (user as AdapterUser | undefined)?.id === "string") {
+        token.id = token.id ?? (user as AdapterUser).id;
+      }
+      if (!token.id && typeof token.sub === "string") {
         token.id = token.sub;
       }
       return token;
     },
-    async session({ session, token }) {
-      const normalizedSession = session ?? { user: {} };
-      const userId = (token?.id ?? normalizedSession.user?.id) as string | undefined;
+    async session({ session, token, user }) {
+      const normalizedSession: Session & {
+        user?: (Session["user"] & { id?: string }) | undefined;
+      } = session ?? { user: {} };
+
+      const adapterUser = user as AdapterUser | undefined;
+      const candidateIds: Array<string | undefined> = [
+        normalizedSession.user?.id as string | undefined,
+        typeof token?.id === "string" ? token.id : undefined,
+        typeof token?.sub === "string" ? token.sub : undefined,
+        typeof adapterUser?.id === "string" ? adapterUser.id : undefined,
+      ];
+
+      const userId = candidateIds.find((value) => typeof value === "string" && value.trim().length > 0);
+
       return {
         ...normalizedSession,
         user: {

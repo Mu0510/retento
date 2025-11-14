@@ -1,7 +1,7 @@
 "use client";
 
 import type { PointerEvent, ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, RefreshCcw, CheckCircle2 } from "lucide-react";
 
@@ -28,7 +28,7 @@ type SwipeIndicatorState = {
   progress: number;
 };
 
-export default function SessionPage() {
+function SessionPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -588,6 +588,20 @@ export default function SessionPage() {
   );
 }
 
+export default function SessionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#fdfdfd] text-gray-900 flex items-center justify-center">
+          <StateCard icon={<Loader2 className="h-6 w-6 animate-spin" />} message="セッションを読み込んでいます" />
+        </div>
+      }
+    >
+      <SessionPageContent />
+    </Suspense>
+  );
+}
+
 function choiceVisual(choice: SessionChoice, sheet?: Answer) {
   if (!sheet || sheet.state === "idle") {
     return "";
@@ -601,7 +615,7 @@ function choiceVisual(choice: SessionChoice, sheet?: Answer) {
   return "opacity-60";
 }
 
-function FeedbackPanel({ question, sheet }: { question: Question; sheet?: Answer }) {
+function FeedbackPanel({ question, sheet }: { question: SessionQuestion; sheet?: Answer }) {
   if (!sheet || sheet.state === "idle") {
     return (
       <div className="flex h-full flex-col items-center justify-center text-sm text-gray-600">

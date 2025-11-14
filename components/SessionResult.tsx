@@ -22,6 +22,8 @@ interface SessionResultProps {
 
 export default function SessionResult({
   feedback,
+  feedbackLoading,
+  feedbackError,
   scoreBefore,
   scoreAfter,
   scoreDiff,

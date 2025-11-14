@@ -42,10 +42,10 @@ export function LandingSplitSection({
         )}
         <h3 className="text-2xl sm:text-3xl tracking-tight">{title}</h3>
         {description && <p className="text-gray-600 leading-relaxed">{description}</p>}
-        {bullets?.length && (
+        {bullets && bullets.length > 0 && (
           <ul className="space-y-3">
-            {bullets.map((item) => (
-              <li key={item.id ?? item.text} className="flex items-start gap-3">
+            {bullets.map((item, index) => (
+              <li key={item.id ?? `bullet-${index}`} className="flex items-start gap-3">
                 <CheckCircle2 className="w-5 h-5 text-[#c2255d] mt-0.5 flex-shrink-0" />
                 <span className="text-gray-700">{item.text}</span>
               </li>
