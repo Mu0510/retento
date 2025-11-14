@@ -1,18 +1,9 @@
-import fs from "fs";
-import path from "path";
-
-const VOCAB_PATH = path.join(process.cwd(), "data", "vocabulary.json");
-const EMBEDDING_PATH = path.join(process.cwd(), "data", "vocab-embeddings.jsonl");
-
-export type VocabularyEntry = {
-  id: number;
-  word: string;
-  part_of_speech?: string | null;
-  difficulty_score?: number;
-  meaning_1?: string | null;
-  meaning_2?: string | null;
-  meaning_3?: string | null;
-};
+import {
+  getEmbeddingMap,
+  getVocabularyById,
+  getVocabularyList,
+  type VocabularyEntry,
+} from "@/lib/vocabulary-data";
 
 export type SessionWord = {
   id: number;
@@ -40,39 +31,14 @@ export type SessionPlanResponse = {
   };
 };
 
-const vocabularyList: VocabularyEntry[] = loadVocabulary();
-const vocabularyById = new Map(vocabularyList.map((entry) => [entry.id, entry]));
-const embeddingsById = loadEmbeddings();
+const vocabularyList: VocabularyEntry[] = getVocabularyList();
+const vocabularyById = getVocabularyById();
+const embeddingsById = getEmbeddingMap();
 
 const DEFAULT_SESSION_SIZE = 5;
 const MIN_SCORE = 5;
 const MAX_SCORE = 10000;
 const SCORE_WINDOW = 400;
-
-function loadVocabulary(): VocabularyEntry[] {
-  if (!fs.existsSync(VOCAB_PATH)) {
-    throw new Error("vocabulary master list missing (data/vocabulary.json)");
-  }
-  return JSON.parse(fs.readFileSync(VOCAB_PATH, "utf-8")) as VocabularyEntry[];
-}
-
-function loadEmbeddings(): Map<number, number[]> {
-  const cache = new Map<number, number[]>();
-  if (!fs.existsSync(EMBEDDING_PATH)) {
-    return cache;
-  }
-  const lines = fs.readFileSync(EMBEDDING_PATH, "utf-8").split("\n");
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    try {
-      const record = JSON.parse(line) as { id: number; embedding: number[] };
-      cache.set(record.id, record.embedding);
-    } catch (error) {
-      console.warn("failed to parse embedding record", error);
-    }
-  }
-  return cache;
-}
 
 function getMeaningList(entry: VocabularyEntry): string[] {
   return [entry.meaning_1, entry.meaning_2, entry.meaning_3].filter(

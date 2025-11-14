@@ -6,41 +6,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, RefreshCcw, CheckCircle2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import type { SessionPlanResponse } from "@/lib/session-builder";
+import type { QuestionConversation, SessionChoice, SessionQuestion } from "@/types/questions";
+import SessionResult from "@/components/SessionResult";
 
 const ACCENT = "#c2255d";
-
-type SessionWord = {
-  id: number;
-  word: string;
-  partOfSpeech?: string | null;
-  difficultyScore?: number;
-  meanings: string[];
-  basis: "review" | "score" | "neighbor";
-  neighborScore?: number | null;
-};
-
-type SessionPlanResponse = {
-  words: SessionWord[];
-  metadata: {
-    sessionSize: number;
-    baseWordIds: number[];
-    userScore: number;
-    difficultyRange: [number, number];
-  };
-};
-
-type Choice = {
-  id: string;
-  label: string;
-  correct: boolean;
-};
-
-type Question = {
-  word: SessionWord;
-  sentence: string;
-  translation: string;
-  choices: Choice[];
-};
 
 type Answer = {
   state: "idle" | "correct" | "incorrect";
@@ -63,15 +33,21 @@ export default function SessionPage() {
   const searchParams = useSearchParams();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [plan, setPlan] = useState<SessionPlanResponse | null>(null);
+  const [questions, setQuestions] = useState<SessionQuestion[]>([]);
+  const [conversation, setConversation] = useState<QuestionConversation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<AnswerSheet>({});
   const [confidenceMap, setConfidenceMap] = useState<Record<number, ConfidenceLevel>>({});
+  const [completedCount, setCompletedCount] = useState(0);
+  const [isSessionComplete, setIsSessionComplete] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const [swipeDirection, setSwipeDirection] = useState<SwipeDirection>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const dragStartRef = useRef({ x: 0, y: 0 });
+  const feedbackRequestedRef = useRef(false);
 
   useEffect(() => {
     const existing = searchParams.get("session");
@@ -105,6 +81,13 @@ export default function SessionPage() {
     setError(null);
     setCurrentIndex(0);
     setAnswers({});
+    setConfidenceMap({});
+    setCompletedCount(0);
+    setQuestions([]);
+    setConversation(null);
+    setIsSessionComplete(false);
+    setFeedback(null);
+    feedbackRequestedRef.current = false;
     try {
       const res = await fetch("/api/sessions/plan", {
         method: "POST",
@@ -114,6 +97,40 @@ export default function SessionPage() {
       if (!res.ok) throw new Error("セッションを生成できませんでした");
       const data = (await res.json()) as SessionPlanResponse;
       setPlan(data);
+
+      const questionRes = await fetch("/api/sessions/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ words: data.words }),
+      });
+      const questionPayload = await questionRes.text();
+      if (!questionRes.ok) {
+        let message = "問題生成に失敗しました";
+        try {
+          const detail = JSON.parse(questionPayload) as { error?: string };
+          if (detail?.error) {
+            message = detail.error;
+          }
+        } catch {
+          // ignore
+        }
+        throw new Error(message);
+      }
+
+      let parsedQuestions: { questions?: SessionQuestion[]; conversation?: QuestionConversation | null } = {};
+      try {
+        parsedQuestions = JSON.parse(questionPayload) as {
+          questions?: SessionQuestion[];
+          conversation?: QuestionConversation | null;
+        };
+      } catch {
+        throw new Error("問題データを解析できませんでした");
+      }
+      if (!parsedQuestions.questions?.length) {
+        throw new Error("問題データが空です");
+      }
+      setQuestions(parsedQuestions.questions);
+      setConversation(parsedQuestions.conversation ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "予期せぬエラーが発生しました");
     } finally {
@@ -126,31 +143,58 @@ export default function SessionPage() {
     void fetchPlan();
   }, [sessionId, fetchPlan]);
 
-  const questions = useMemo(() => {
-    if (!plan) return [];
-    return plan.words.map<Question>((word, index) => {
-      const sentence = index % 2 === 0
-        ? `She accepted the award with great ${word.word}.`
-        : `Researchers discussed ${word.word} in detail.`;
-      const translation = index % 2 === 0
-        ? `彼女は大きな ${word.meanings[0] ?? "意味"} をもって賞を受け取った。`
-        : `${word.meanings[0] ?? "語"} について研究者たちが議論した。`;
-      const distractors = pickDistractors(word, plan.words, 3);
-      const choices = shuffle([
-        { id: `${word.id}-correct`, label: word.meanings[0] ?? `${word.word} の定義`, correct: true },
-        ...distractors,
-      ]);
-      return { word, sentence, translation, choices };
-    });
-  }, [plan]);
+  useEffect(() => {
+    if (!questions.length) return;
+    if (completedCount > 0 && completedCount >= questions.length) {
+      setIsSessionComplete(true);
+    }
+  }, [completedCount, questions.length]);
+
+  const handleRestart = useCallback(() => {
+    setIsSessionComplete(false);
+    setFeedback(null);
+    setFeedbackError(null);
+    setFeedbackLoading(false);
+    feedbackRequestedRef.current = false;
+    void fetchPlan();
+  }, [fetchPlan]);
+
+  useEffect(() => {
+    if (!isSessionComplete || !questions.length) {
+      return;
+    }
+    if (feedbackRequestedRef.current) {
+      return;
+    }
+    const results = buildFeedbackResults(questions, answers, confidenceMap);
+    if (!results.length) {
+      return;
+    }
+    feedbackRequestedRef.current = true;
+    void (async () => {
+      try {
+        const response = await fetch("/api/sessions/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conversation, results }),
+        });
+        if (!response.ok) {
+          throw new Error("フィードバック生成に失敗しました");
+        }
+        const data = (await response.json()) as { feedback?: string };
+        setFeedback(data.feedback ?? null);
+      } catch (err) {
+        setFeedback(err instanceof Error ? err.message : "フィードバック生成中にエラーが発生しました");
+      }
+    })();
+  }, [answers, confidenceMap, conversation, isSessionComplete, questions]);
 
   const currentQuestion = questions[currentIndex];
   const progress = questions.length ? (currentIndex + 1) / questions.length : 0;
   const currentSheet = currentQuestion ? answers[currentQuestion.word.id] : undefined;
   const swipeEnabled = Boolean(currentSheet && currentSheet.state !== "idle");
   const currentQuestionId = currentQuestion?.word.id ?? null;
-
-  const handleChoice = (choice: Choice) => {
+  const handleChoice = (choice: SessionChoice) => {
     if (!currentQuestion) return;
     const sheet = answers[currentQuestion.word.id];
     if (sheet && sheet.state !== "idle") {
@@ -183,6 +227,7 @@ export default function SessionPage() {
         return { ...prev, [wordId]: level };
       });
       if (alreadyRecorded) return;
+      setCompletedCount((prev) => prev + 1);
       void queueConfidenceRecord(wordId, level);
       setTimeout(() => {
         goToNextQuestion();
@@ -220,13 +265,13 @@ export default function SessionPage() {
       if (!isDragging) return;
       event.currentTarget.releasePointerCapture?.(event.pointerId);
       setIsDragging(false);
-      const result = detectSwipe(dragOffset.x, dragOffset.y);
-      if (result && currentQuestionId) {
-        setSwipeDirection(result.direction);
-        commitConfidence(currentQuestionId, result.level);
-      } else {
-        setDragOffset({ x: 0, y: 0 });
-      }
+    const result = detectSwipe(dragOffset.x, dragOffset.y);
+    if (result && currentQuestionId) {
+      setSwipeDirection(result.direction);
+      commitConfidence(currentQuestionId, result.level);
+    } else {
+      setDragOffset({ x: 0, y: 0 });
+    }
     },
     [commitConfidence, currentQuestionId, dragOffset.x, dragOffset.y, isDragging],
   );
@@ -305,11 +350,41 @@ export default function SessionPage() {
     swipeEnabled,
   ]);
 
+  const sessionResults = results.map((result) => ({
+    word: result.word,
+    meaning: result.meaning,
+    isCorrect: result.isCorrect,
+    confidenceLevel:
+      result.isCorrect && result.confidence === "perfect"
+        ? "perfect"
+        : result.isCorrect
+          ? "uncertain"
+          : "not_learned",
+  }));
+
+  const scoreBefore = Number.isFinite(userScore) ? userScore : 0;
+  const scoreAfter = scoreBefore;
+  const scoreDiff = 0;
+
+  if (isSessionComplete) {
+    return (
+      <SessionResult
+        feedback={feedback ?? null}
+        scoreBefore={scoreBefore}
+        scoreAfter={scoreAfter}
+        scoreDiff={scoreDiff}
+        results={sessionResults}
+        onClose={() => router.push("/")}
+        onNextSession={handleRestart}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#fdfdfd] text-gray-900">
       <main className="mx-auto w-[92vw] max-w-5xl px-4 py-12 space-y-8">
         <header className="space-y-4">
-          <div className="flex items-center justify-between text-sm text-gray-500">
+          <div className="flex items-center justify-start text-sm text-gray-500">
             <button
               type="button"
               className="inline-flex items-center gap-1 text-gray-600 transition hover:text-gray-900"
@@ -317,16 +392,6 @@ export default function SessionPage() {
             >
               <ArrowLeft className="h-4 w-4" /> ホーム
             </button>
-            <div className="flex items-center gap-3 text-xs">
-              <span>session {sessionId ?? "---"}</span>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 text-gray-500 transition hover:text-gray-800"
-                onClick={() => fetchPlan()}
-              >
-                <RefreshCcw className="h-3.5 w-3.5" /> 再生成
-              </button>
-            </div>
           </div>
           <div className="h-[6px] rounded-full bg-gray-200">
             <div
@@ -362,6 +427,10 @@ export default function SessionPage() {
                   onPointerMove={swipeEnabled ? handlePointerMove : undefined}
                   onPointerUp={swipeEnabled ? handlePointerUp : undefined}
                   onPointerCancel={swipeEnabled ? handlePointerCancel : undefined}
+                  onPointerDownCapture={swipeEnabled ? handlePointerDown : undefined}
+                  onPointerMoveCapture={swipeEnabled ? handlePointerMove : undefined}
+                  onPointerUpCapture={swipeEnabled ? handlePointerUp : undefined}
+                  onPointerCancelCapture={swipeEnabled ? handlePointerCancel : undefined}
                 >
                   <div className="relative z-10 space-y-4">
                     <p className="text-gray-700 leading-relaxed text-lg">
@@ -474,23 +543,7 @@ export default function SessionPage() {
   );
 }
 
-function pickDistractors(source: SessionWord, pool: SessionWord[], max: number): Choice[] {
-  const candidates = pool.filter((item) => item.id !== source.id && item.meanings.length);
-  return shuffle(candidates)
-    .slice(0, max)
-    .map((item) => ({ id: `${source.id}-d-${item.id}`, label: item.meanings[0], correct: false }));
-}
-
-function shuffle<T>(items: T[]): T[] {
-  const array = [...items];
-  for (let i = array.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
-  }
-  return array;
-}
-
-function choiceVisual(choice: Choice, sheet?: Answer) {
+function choiceVisual(choice: SessionChoice, sheet?: Answer) {
   if (!sheet || sheet.state === "idle") {
     return "";
   }
@@ -529,7 +582,7 @@ function FeedbackPanel({ question, sheet }: { question: Question; sheet?: Answer
           <div className="space-y-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm">
             <p className="text-xs font-semibold text-foreground">選んだ答え</p>
             <p className="text-sm leading-relaxed text-foreground">
-              {picked.label}
+              {picked.feedback ?? "フィードバックがありません"}
             </p>
           </div>
         )}
@@ -537,7 +590,7 @@ function FeedbackPanel({ question, sheet }: { question: Question; sheet?: Answer
         <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm">
           <p className="text-xs font-semibold text-green-700">正解について</p>
           <p className="mt-1 text-sm leading-relaxed text-foreground">
-            {correct?.label ?? "正解のフィードバックがありません"}
+            {correct?.feedback ?? "正解のフィードバックがありません"}
           </p>
         </div>
       </div>
@@ -675,4 +728,39 @@ function rgbaFromHex(colorHex: string, alpha: number) {
 
 function shadowFromHex(colorHex: string, alpha: number) {
   return rgbaFromHex(colorHex, Math.min(Math.max(alpha, 0), 0.35));
+}
+
+type FeedbackResultPayload = {
+  index: number;
+  word: string;
+  meaning: string;
+  isCorrect: boolean;
+  confidence: ConfidenceLevel;
+  userAnswer: string | null;
+  correctAnswer: string;
+  sentence: string;
+  translation: string;
+};
+
+function buildFeedbackResults(
+  questions: SessionQuestion[],
+  answers: AnswerSheet,
+  confidenceMap: Record<number, ConfidenceLevel>,
+): FeedbackResultPayload[] {
+  return questions.map((question, index) => {
+    const sheet = answers[question.word.id];
+    const picked = sheet?.choiceId ? question.choices.find((choice) => choice.id === sheet.choiceId) : undefined;
+    const correct = question.choices.find((choice) => choice.correct);
+    return {
+      index: index + 1,
+      word: question.word.word,
+      meaning: correct?.label ?? question.word.meanings[0] ?? "",
+      isCorrect: sheet?.state === "correct",
+      confidence: confidenceMap[question.word.id] ?? "none",
+      userAnswer: picked?.label ?? null,
+      correctAnswer: correct?.label ?? "",
+      sentence: question.sentence,
+      translation: question.translation,
+    };
+  });
 }
