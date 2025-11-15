@@ -1,10 +1,13 @@
 {
   "version": "1.0.0",
-  "last_updated": "2025-11-15T12:10:52.831130Z",
+  "last_updated": "2025-11-15T22:00:00Z",
   "total_words": 9000,
-  "total_generated": 156,
+  "total_generated": 190,
   "current_pattern": 10,
   "last_word": "about",
   "last_word_id": 20,
-  "notes": "単語形式違反の34問を削除。id 2-20 で合計156問。欠損34問の再生成が必要。"
+  "summary": {
+    "id_2_20": 190,
+    "note": "単語形式違反の34問を削除後、正しい形で34問を再生成。全190問が vocabulary.json の word 形式と一致。"
+  }
 }
