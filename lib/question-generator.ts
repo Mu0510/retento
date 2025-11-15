@@ -7,10 +7,10 @@ import type {
 } from "@/types/questions";
 
 const OPENAI_API_BASE = process.env.OPENAI_API_BASE ?? "https://api.openai.com";
-const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
-const OPENAI_TIMEOUT_MS = 60_000;
+const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-5-nano";
+const OPENAI_TIMEOUT_MS = 300_000;
 export const QUESTION_SYSTEM_MESSAGE =
-  "あなたは大学受験向け英単語学習アプリの問題作成AIです。例文・和訳・選択肢・各選択肢のフィードバックを厳密にJSONで出力し、教育的価値の高い内容だけを提供してください。";
+  "あなたは日本の大学受験向け英単語学習アプリの問題作成AIです。例文・和訳・選択肢・各選択肢のフィードバックを厳密にJSONで出力し、学習的に価値の高い内容だけを提供してください。";
 
 type RawQuestion = {
   wordIndex: number;
@@ -52,8 +52,7 @@ export async function generateQuestionsForWords(words: SessionWord[]): Promise<Q
       signal: controller.signal,
       body: JSON.stringify({
         model: OPENAI_MODEL,
-        temperature: 0.6,
-        max_tokens: 4000,
+        temperature: 1,
         response_format: { type: "json_object" },
         messages: [
           {
@@ -140,32 +139,34 @@ async function safeReadJson(response: Response) {
 }
 
 function buildPrompt(words: SessionWord[]): string {
-  const header = `以下の${words.length}個の英単語について、大学受験レベルの4択問題を作成してください。`;
   const list = words
     .map(
       (word, idx) =>
-        `${idx + 1}. ${word.word} (${word.partOfSpeech ?? "品詞不明"}) - 正解: ${word.meanings[0] ?? "意味不明"}`
+        `${idx + 1}. ${word.word} (${word.partOfSpeech ?? "品詞不明"}) - 正解: ${
+          word.meanings[0] ?? "意味不明"
+        }`
     )
     .join("\n");
 
-  return `${header}
+  return `以下の${words.length}個の英単語について、大学受験レベルの4択問題を作成してください。
 
 単語リスト:
 ${list}
 
-以下のJSON形式で必ず応答し、他のテキストは一切含めないでください。
+以下のJSON形式で出力してください。他のテキストは一切含めないでください。
+
 {
   "questions": [
     {
       "wordIndex": 1,
       "sentence": "単語を<u>タグで囲んだ簡潔な英語例文（10-15単語程度）",
-      "sentenceJapanese": "例文の自然な日本語訳",
+      "sentenceJapanese": "例文の日本語訳",
       "wrongChoices": ["紛らわしい不正解1", "紛らわしい不正解2", "紛らわしい不正解3"],
       "feedbacks": {
-        "correct": "正解の場合のフィードバック（なぜ正解か・語源・覚え方・豆知識など、140字程度）",
-        "choice1": "wrongChoices[0]が不正解の理由（その訳ならどんな表現になるか、140字程度）",
-        "choice2": "wrongChoices[1]が不正解の理由（その訳ならどんな表現になるか、140字程度）",
-        "choice3": "wrongChoices[2]が不正解の理由（その訳ならどんな表現になるか、140字程度）"
+        "correct": "正解の場合のフィードバック（なぜ正解か、語源、覚え方、豆知識など、140字程度）",
+        "choice1": "選択肢1が不正解の理由（その訳ならどんな表現になるか、140字程度）",
+        "choice2": "選択肢2が不正解の理由（その訳ならどんな表現になるか、140字程度）",
+        "choice3": "選択肢3が不正解の理由（その訳ならどんな表現になるか、140字程度）"
       }
     }
   ]
@@ -173,14 +174,14 @@ ${list}
 
 要件:
 - 例文は簡潔で自然な英語（10-15単語程度）
-- **最重要**: 例文には必ず問題単語そのものを含め、問題単語のみ<u>タグ</u>で強調し、それ以外にHTMLや記号を入れないこと
-- **重要**: 例文中の問題単語以外の語彙はより易しい単語を使うこと
-- sentenceJapanese は自然な日本語訳のみ（HTMLタグ・記号・括弧を入れない）
-- 選択肢は正解と紛らわしいが明確に誤っている日本語訳にする
-- フィードバックは学習に資するクリティカルな情報（語源、類義語との違い、記憶術など）を含め、各140字前後（最低120字）で書く（テンプレ的な1行は禁止）
-- フィードバックや選択肢の文面は純粋な日本語テキストのみで、HTMLタグ・半角記号による装飾は絶対に入れない
-- 全問で一貫したテーマ性（語感や文脈）が出るよう配慮する
-- JSON以外の文字列（前置き・後置き・コードフェンスなど）を絶対に出力しない`;
+- **最重要**: 例文には必ず問題単語そのものを含めること（単語が抜けた不完全な文にしないこと）
+- **重要**: 例文中の問題単語以外の単語は、問題単語より簡単なものを使用すること（学習者が問題単語以外の単語で躓かないように）
+- 選択肢は正解と紛らわしいが間違っているもの
+- フィードバックは学習に資するクリティカルな情報（語源、類義語との違い、記憶術など）を含む
+- 正解のフィードバックは「なぜ正解か」「単語の成り立ち」「覚え方」「豆知識」を含む
+- 不正解のフィードバックは「なぜ不正解か」「その訳ならどんな表現になるか」を含む
+- 各フィードバックは140字程度に収める
+- ${words.length}問すべてに一貫性を持たせる（テーマ性を意識）`;
 }
 
 function parseQuestions(content: string): RawQuestionResponse {

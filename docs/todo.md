@@ -121,7 +121,7 @@
 - [ ] 初回テスト問題にAIフィードバックを追加
 
 ## Legacy learning features still missing in the new app
-- [ ] Hook `/api/sessions/start` into the UI so we actually persist sessions, consume pregenerated sets, and keep the background pregeneration loop running just like the old `learning.startSession` flow did in `old_docs/server/routers.ts:30-230`; the current page only hits `/api/sessions/plan` and `/api/sessions/questions` and still uses the stubbed `queueConfidenceRecord` in `app/app/session/page.tsx:93-106` and `698-701`.
+- [x] Hook `/api/sessions/start` into the UI so we actually persist sessions, consume pregenerated sets, and keep the background pregeneration loop running just like the old `learning.startSession` flow did in `old_docs/server/routers.ts:30-230`; the page now only hits `/api/sessions/start`, and `/api/sessions/plan`/`/api/sessions/questions` have been retired.
 - [ ] Record each answer/confidence and update `user_word_confidences`/`user_profiles` (old `submitAnswer` + `calculateSessionScore` in `old_docs/server/routers.ts:233-356`) so that spaced-repetition scheduling actually happens instead of leaving review data on the client.
 - [ ] Reintroduce the initial-level test workflow (status/start/next-question/submit) plus the question-generation helpers that populated `initial_test_questions`/`user_initial_test_results` (`old_docs/server/routers.ts:395-508`, `old_docs/server/initial-test-helpers.ts`, `old_docs/client/src/pages/InitialTest.tsx`). The new app currently has no `/initial-test` page or API.
 - [ ] Run the historical generators (`old_docs/server/generate-initial-test-questions.mjs`, `old_docs/server/generate-1000-questions.ts`) so the curated 1,000/30-question data sets are available again.

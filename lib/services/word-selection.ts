@@ -1,9 +1,4 @@
-import {
-  DEFAULT_SESSION_SIZE,
-  DIFFICULTY_RANGE,
-  DIFFICULTY_THRESHOLDS,
-  USER_SCORE_RANGE,
-} from "@/lib/constants";
+import { DEFAULT_SESSION_SIZE, DIFFICULTY_RANGE } from "@/lib/constants";
 import { getEmbeddingMap, getVocabularyById, getVocabularyList, type VocabularyEntry } from "@/lib/vocabulary-data";
 import type { SessionWord } from "@/lib/session-builder";
 
@@ -42,10 +37,6 @@ export function selectWordsForUser(options: SelectionOptions): WordSelectionResu
   const window = buildDifficultyWindow(targetDifficulty, WINDOW_LOWER_WORDS, WINDOW_UPPER_WORDS);
   const range = window.entries;
   const rangeSet = new Set(range.map((entry) => entry.id));
-  const difficultyRange: [number, number] =
-    range.length > 0
-      ? [range[0].difficulty_score ?? DIFFICULTY_RANGE.min, range.at(-1)?.difficulty_score ?? DIFFICULTY_RANGE.max]
-      : [DIFFICULTY_RANGE.min, DIFFICULTY_RANGE.max];
   const exclude = new Set<number>([...seen]);
   const selected: SessionWord[] = [];
 
@@ -82,31 +73,27 @@ export function selectWordsForUser(options: SelectionOptions): WordSelectionResu
     .filter((word) => word.basis === "review" || word.basis === "score")
     .map((word) => word.id);
 
+  const windowRange: [number, number] =
+    range.length > 0
+      ? [
+          range[0].difficulty_score ?? DIFFICULTY_RANGE.min,
+          range.at(-1)?.difficulty_score ?? DIFFICULTY_RANGE.max,
+        ]
+      : [DIFFICULTY_RANGE.min, DIFFICULTY_RANGE.max];
+
   return {
     words: selected,
     metadata: {
       sessionSize,
       baseWordIds,
       userScore: options.userScore,
-      difficultyRange,
+      difficultyRange: windowRange,
     },
   };
 }
 
 export function scoreToDifficulty(userScore: number): number {
-  const clamped = clamp(userScore, USER_SCORE_RANGE.min, USER_SCORE_RANGE.max);
-  for (const threshold of DIFFICULTY_THRESHOLDS) {
-    const [scaledMin, scaledMax] = threshold.scaled_range;
-    const [diffMin, diffMax] = threshold.range;
-    if (clamped <= scaledMax) {
-      if (scaledMax === scaledMin) {
-        return diffMin;
-      }
-      const ratio = (clamped - scaledMin) / (scaledMax - scaledMin);
-      return diffMin + ratio * (diffMax - diffMin);
-    }
-  }
-  return DIFFICULTY_THRESHOLDS.at(-1)?.range[1] ?? DIFFICULTY_RANGE.max;
+  return clamp(userScore, DIFFICULTY_RANGE.min, DIFFICULTY_RANGE.max);
 }
 
 type DifficultyWindow = {
@@ -121,46 +108,75 @@ function buildDifficultyWindow(
   if (!difficultyOrderedVocabulary.length) {
     return { entries: [] };
   }
-  const totalDesired = lowerWords + upperWords + 1;
-  let bestIndex = 0;
-  let bestDiff = Infinity;
-  for (let i = 0; i < difficultyOrderedVocabulary.length; i += 1) {
-    const score = difficultyOrderedVocabulary[i].difficulty_score ?? 0;
-    const diff = Math.abs(score - target);
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      bestIndex = i;
+  const lowerCandidates = difficultyOrderedVocabulary.filter(
+    (entry) => (entry.difficulty_score ?? 0) <= target,
+  );
+  const upperCandidates = difficultyOrderedVocabulary.filter(
+    (entry) => (entry.difficulty_score ?? 0) > target,
+  );
+
+  const lowerSelected: VocabularyEntry[] = [];
+  let lowerIndex = lowerCandidates.length - 1;
+  while (lowerSelected.length < lowerWords && lowerIndex >= 0) {
+    lowerSelected.push(lowerCandidates[lowerIndex]);
+    lowerIndex -= 1;
+  }
+
+  const upperSelected: VocabularyEntry[] = [];
+  let upperIndex = 0;
+  while (upperSelected.length < upperWords && upperIndex < upperCandidates.length) {
+    upperSelected.push(upperCandidates[upperIndex]);
+    upperIndex += 1;
+  }
+
+  const totalDesired = lowerWords + upperWords;
+  while (lowerSelected.length + upperSelected.length < totalDesired) {
+    if (upperIndex < upperCandidates.length) {
+      upperSelected.push(upperCandidates[upperIndex]);
+      upperIndex += 1;
+      continue;
     }
-  }
-  let start = Math.max(0, bestIndex - lowerWords);
-  let end = Math.min(difficultyOrderedVocabulary.length - 1, bestIndex + upperWords);
-
-  const missingLower = Math.max(0, lowerWords - (bestIndex - start));
-  if (missingLower > 0) {
-    const extendRight = Math.min(difficultyOrderedVocabulary.length - 1 - end, missingLower);
-    end += extendRight;
-  }
-
-  const missingUpper = Math.max(0, upperWords - (end - bestIndex));
-  if (missingUpper > 0) {
-    const extendLeft = Math.min(start, missingUpper);
-    start -= extendLeft;
-  }
-
-  let windowSize = end - start + 1;
-  if (windowSize < totalDesired) {
-    let needed = totalDesired - windowSize;
-    const extendRight = Math.min(difficultyOrderedVocabulary.length - 1 - end, needed);
-    end += extendRight;
-    needed -= extendRight;
-    if (needed > 0) {
-      const extendLeft = Math.min(start, needed);
-      start -= extendLeft;
-      needed -= extendLeft;
+    if (lowerIndex >= 0) {
+      lowerSelected.push(lowerCandidates[lowerIndex]);
+      lowerIndex -= 1;
+      continue;
     }
+    break;
   }
 
-  return { entries: difficultyOrderedVocabulary.slice(start, end + 1) };
+  const selectedSet = new Set<number>();
+  const entries: VocabularyEntry[] = [];
+  const addEntry = (entry: VocabularyEntry) => {
+    if (selectedSet.has(entry.id)) {
+      return;
+    }
+    selectedSet.add(entry.id);
+    entries.push(entry);
+  };
+
+  for (const entry of lowerSelected) {
+    addEntry(entry);
+  }
+  for (const entry of upperSelected) {
+    addEntry(entry);
+  }
+
+  while (entries.length < totalDesired) {
+    if (upperIndex < upperCandidates.length) {
+      addEntry(upperCandidates[upperIndex]);
+      upperIndex += 1;
+      continue;
+    }
+    if (lowerIndex >= 0) {
+      addEntry(lowerCandidates[lowerIndex]);
+      lowerIndex -= 1;
+      continue;
+    }
+    break;
+  }
+
+  entries.sort((a, b) => (a.difficulty_score ?? 0) - (b.difficulty_score ?? 0));
+  return { entries };
 }
 
 function pickAnchors(

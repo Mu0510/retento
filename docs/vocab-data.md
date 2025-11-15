@@ -41,37 +41,34 @@ OPENAI_API_KEY=xxx python3 scripts/generate_embeddings.py --batch 100 --resume
 
 生成されるファイル: `data/vocab-embeddings.jsonl`（1行1語、`id`, `word`, `difficulty_score`, `embedding`）。実行中は `Processing words 1-50 / 9223` のような進捗ログが標準出力に出ます。
 
-## セッション生成API
-Next.js API ルート `/api/sessions/plan` は `data/vocabulary.json` と `data/vocab-embeddings.jsonl` を利用して、Retento で使う 10 問セッションの単語リストを組み立てるための汎用エンドポイントです。
+## セッション開始API
+Next.js API ルート `/api/sessions/start` はログイン済みのユーザーを対象に、`user_profiles.word_score` を起点として 301 語近傍（ターゲットより易しい最大 200 語＋難しい最大 100 語）を候補としてセッションを組み立てます。生成済みのセッションがあればスコア帯が一致するものを再利用し、そうでない場合は新規作成して `study_sessions` に保存します。AI 問題生成もこのルート内で行われるため、クライアント側から `/api/sessions/plan` や `/api/sessions/questions` を連続で呼ぶ必要がありません。
 
 ### リクエスト例 (POST)
 ```jsonc
 {
-  "userScore": 4200,
-  "sessionSize": 10,
-  "reviewIds": [12, 37]
+  "sessionSize": 5
 }
 ```
 
-### パラメータ
-- `userScore`: セッションを組む際の参考スコア（5〜10,000 で変換済み）。スコアに近い難易度の単語がベースになります。
-- `sessionSize`: 生成したい単語数（デフォルト 10、最大 20）。
-- `reviewIds`: レビュー候補（1件～3件）を先に含める場合に ID を渡します。
+`sessionSize` は生成したい問題数（デフォルト 5、最大 20）です。`userScore` や `reviewIds` のような手動スコア指定は不要で、常に保存済みのスコアが利用されます。
 
 ### レスポンス
 ```jsonc
 {
-  "words": [
-    { "id": 5, "word": "it", "basis": "review", "difficultyScore": 10, "meanings": ["それは", "それが"], "neighborScore": null },
-    ...
-  ],
-  "metadata": {
-    "sessionSize": 10,
-    "baseWordIds": [5, 239, 52],
-    "userScore": 4200,
-    "difficultyRange": [3800, 4600]
-  }
+  "sessionId": "dd4e3bce-xxxx-xxxx-xxxx-xxxxxx",
+  "plan": {
+    "words": [ ... ],
+    "metadata": {
+      "sessionSize": 5,
+      "baseWordIds": [ 120, 450, 780 ],
+      "userScore": 5360,
+      "difficultyRange": [ 3890, 4465 ]
+    }
+  },
+  "questions": [ ... ],
+  "source": "immediate"
 }
 ```
 
-ベースワード（`basis` が `review` または `score`）を最大3つ選び、残りはベース単語とのコサイン類似度が高い語で埋めます。埋め込み未生成時はベース単語のみで構成されます。API を呼ぶフローに組み込むことで、ユーザーのスコア／レビュー候補に応じたセッションを一律に再現できます。
+`plan.metadata.difficultyRange` は候補プールに含まれる語の `difficulty_score` の最小／最大値（ユーザーのスコアを基準に下200語、上100語の局所バンド）を示します。これを UI で「band 3890–4465」のように表示すれば、実際の `user_profiles.word_score` に沿った帯域を表現できます。

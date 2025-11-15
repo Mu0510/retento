@@ -67,20 +67,6 @@ function SessionPageContent() {
     router.replace(`/app/session?${query.toString()}`);
   }, [router, searchParams]);
 
-  const userScore = useMemo(() => {
-    const score = Number(searchParams.get("score"));
-    return Number.isFinite(score) ? score : 4200;
-  }, [searchParams]);
-
-  const reviewIds = useMemo(() => {
-    const param = searchParams.get("review");
-    if (!param) return undefined;
-    return param
-      .split(",")
-      .map((value) => Number(value.trim()))
-      .filter((value) => Number.isFinite(value));
-  }, [searchParams]);
-
   const fetchPlan = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -96,57 +82,48 @@ function SessionPageContent() {
     setFeedbackLoading(false);
     feedbackRequestedRef.current = false;
     try {
-      const res = await fetch("/api/sessions/plan", {
+      const res = await fetch("/api/sessions/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userScore, reviewIds, sessionSize: 5 }),
+        body: JSON.stringify({ sessionSize: 5 }),
       });
-      if (!res.ok) throw new Error("セッションを生成できませんでした");
-      const data = (await res.json()) as SessionPlanResponse;
-      setPlan(data);
-      setScoreBefore(userScore);
-      setScoreAfter(userScore);
-      setScoreDiff(0);
-
-      const questionRes = await fetch("/api/sessions/questions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ words: data.words }),
-      });
-      const questionPayload = await questionRes.text();
-      if (!questionRes.ok) {
-        let message = "問題生成に失敗しました";
-        try {
-          const detail = JSON.parse(questionPayload) as { error?: string };
-          if (detail?.error) {
-            message = detail.error;
+      let responseBody:
+        | {
+            error?: string;
+            plan?: SessionPlanResponse;
+            questions?: SessionQuestion[];
           }
-        } catch {
-          // ignore
-        }
+        | null = null;
+      try {
+        responseBody = await res.json();
+      } catch {
+        // ignore parse errors for error responses
+      }
+      if (!res.ok) {
+        const message = responseBody?.error ?? "セッションを生成できませんでした";
         throw new Error(message);
       }
-
-      let parsedQuestions: { questions?: SessionQuestion[]; conversation?: QuestionConversation | null } = {};
-      try {
-        parsedQuestions = JSON.parse(questionPayload) as {
-          questions?: SessionQuestion[];
-          conversation?: QuestionConversation | null;
-        };
-      } catch {
-        throw new Error("問題データを解析できませんでした");
+      if (!responseBody || !responseBody.plan) {
+        throw new Error("セッションデータを読み込めませんでした");
       }
-      if (!parsedQuestions.questions?.length) {
+      const fetchedPlan = responseBody.plan;
+      const questions = Array.isArray(responseBody.questions) ? responseBody.questions : [];
+      if (!questions.length) {
         throw new Error("問題データが空です");
       }
-      setQuestions(parsedQuestions.questions);
-      setConversation(parsedQuestions.conversation ?? null);
+      setPlan(fetchedPlan);
+      const planScore = fetchedPlan.metadata.userScore ?? 0;
+      setScoreBefore(planScore);
+      setScoreAfter(planScore);
+      setScoreDiff(0);
+      setQuestions(questions);
+      setConversation(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "予期せぬエラーが発生しました");
     } finally {
       setLoading(false);
     }
-  }, [reviewIds, userScore]);
+  }, []);
 
   useEffect(() => {
     if (!sessionId) return;
