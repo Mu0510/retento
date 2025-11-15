@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { UnauthorizedError, requireSessionUser } from "@/lib/auth/session";
 import { supabaseAdminClient } from "@/lib/supabase-admin";
 import {
   calculateUserScore,
@@ -16,6 +17,18 @@ export async function POST(request: NextRequest, context: { params: Promise<Reca
   const { userId } = await context.params;
   if (!userId) {
     return NextResponse.json({ error: "userId is required" }, { status: 400 });
+  }
+
+  try {
+    const { userId: sessionUserId } = await requireSessionUser();
+    if (sessionUserId !== userId) {
+      return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+    }
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+    return NextResponse.json({ error: "認証に失敗しました" }, { status: 500 });
   }
 
   const { error: profileError } = await supabaseAdminClient

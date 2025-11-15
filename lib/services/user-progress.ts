@@ -84,11 +84,11 @@ export async function ensurePublicUser(userId: string): Promise<void> {
 
     let fallbackEmail: string | undefined;
     if (typeof supabaseAdminClient.auth.admin?.getUserById === "function") {
-      const { data: authUser, error: authError } = await supabaseAdminClient.auth.admin.getUserById(userId);
+      const { data: authUserResponse, error: authError } = await supabaseAdminClient.auth.admin.getUserById(userId);
       if (authError) {
         console.warn("[ensurePublicUser] failed to load auth user", authError.message);
       } else {
-        fallbackEmail = authUser?.email ?? undefined;
+        fallbackEmail = authUserResponse?.user?.email ?? undefined;
       }
     }
 

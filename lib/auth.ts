@@ -9,6 +9,7 @@ import { ensurePublicUser, registerAuthMethod } from "@/lib/services/user-progre
 const formatUserName = (name?: string) => name?.trim() || undefined;
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
   adapter: hasSupabaseAdminConfig
     ? SupabaseAdapter({
         url: supabaseAdminConfig.url,
@@ -54,7 +55,7 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   session: {
-    strategy: "database",
+    strategy: "jwt",
   },
   pages: {
     signIn: "/auth/login",
@@ -76,11 +77,19 @@ export const authOptions: NextAuthOptions = {
     },
 
     async jwt({ token, user }) {
-      if (user && typeof (user as AdapterUser | undefined)?.id === "string") {
-        token.id = token.id ?? (user as AdapterUser).id;
-      }
-      if (!token.id && typeof token.sub === "string") {
+      const adapterUser = user as AdapterUser | undefined;
+      if (adapterUser?.id) {
+        token.id = adapterUser.id;
+      } else if (!token.id && typeof token.sub === "string") {
         token.id = token.sub;
+      }
+
+      if (adapterUser?.email) {
+        token.email = adapterUser.email;
+      }
+
+      if (adapterUser?.name) {
+        token.name = adapterUser.name;
       }
       return token;
     },

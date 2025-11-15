@@ -6,13 +6,21 @@ const TOKEN_LIFETIME_MS = 30 * 60 * 1000; // 30 minutes
 
 export async function createPasswordResetToken(email: string) {
   const normalizedEmail = email.trim().toLowerCase();
-  const { data: user, error: userError } = await supabaseAdminClient.auth.admin.getUserByEmail(normalizedEmail);
+  const {
+    data: userResponse,
+    error: userError,
+  } = await supabaseAdminClient.auth.admin.getUserByEmail(normalizedEmail);
+  const user = userResponse?.user ?? null;
+
   if (userError || !user) {
     throw new Error(userError?.message ?? "ユーザーが見つかりませんでした");
   }
+
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + TOKEN_LIFETIME_MS).toISOString();
+
   await supabaseAdminClient.from(PASSWORD_RESET_TABLE).delete().eq("user_id", user.id);
+
   const { error: insertError } = await supabaseAdminClient.from(PASSWORD_RESET_TABLE).insert({
     user_id: user.id,
     token,
