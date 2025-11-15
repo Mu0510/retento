@@ -1,19 +1,10 @@
 {
   "version": "1.0.0",
+  "last_updated": "2025-11-15T12:10:52.831130Z",
   "total_words": 9000,
-  "total_generated": 10,
-  "current_pattern": 1,
-  "last_word": "abhorrence",
-  "last_word_id": 11,
-  "last_updated": "2025-11-15T10:49:46.341343Z",
-  "batches": [
-    {
-      "batch_id": 1,
-      "timestamp": "2025-11-15T10:49:46.341372Z",
-      "words_generated": 10,
-      "start_word": "abandon",
-      "end_word": "abhorrence",
-      "pattern_number": 1
-    }
-  ]
+  "total_generated": 156,
+  "current_pattern": 10,
+  "last_word": "about",
+  "last_word_id": 20,
+  "notes": "単語形式違反の34問を削除。id 2-20 で合計156問。欠損34問の再生成が必要。"
 }

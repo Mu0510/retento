@@ -1,3 +1,4 @@
+"use client";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
@@ -17,18 +18,16 @@ export default function AccountSettingsPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
 
-  function loadMethods() {
-    return (async () => {
-      try {
-        const res = await fetch("/api/account/auth-methods");
-        if (!res.ok) throw new Error("認証情報が取得できません");
-        const json = await res.json();
-        setMethods(json.methods ?? []);
-      } catch (error) {
-        console.error(error);
-      }
-    })();
-  }
+  const loadMethods = async () => {
+    try {
+      const res = await fetch("/api/account/auth-methods");
+      if (!res.ok) throw new Error("認証情報が取得できません");
+      const json = await res.json();
+      setMethods(json.methods ?? []);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   useEffect(() => {
     void loadMethods();
@@ -59,17 +58,6 @@ export default function AccountSettingsPage() {
       setStatus(error instanceof Error ? error.message : "エラーが発生しました");
     } finally {
       setUpdating(false);
-    }
-  };
-
-  const loadMethods = async () => {
-    try {
-      const res = await fetch("/api/account/auth-methods");
-      if (!res.ok) throw new Error("認証情報が取得できません");
-      const json = await res.json();
-      setMethods(json.methods ?? []);
-    } catch (error) {
-      console.error(error);
     }
   };
 

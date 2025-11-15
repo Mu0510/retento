@@ -28,11 +28,56 @@ word,pattern_number,sentence_en,sentence_ja,choice_1,choice_2,choice_3,choice_4,
 - `choice_1` ~ `choice_4`: 日本語4択（どれも「ありえそう」に見える選択肢）
 - `correct_choice_index`: 正解の番号（1-4の整数）
 - `feedback_1` ~ `feedback_4`: 各選択肢への丁寧な解説
-- `tags`: カンマ区切りのタグ（1-5個、セミコロン不使用）
+- `tags`: セミコロン区切りのタグ（1-5個）
 - `usage_scene`: 使用場面の説明（1フレーズ）
 - `embedding_text`: 埋め込みベクトル生成用テキスト
 
 ## 🔧 生成ルール
+
+### 0. **【最重要】wordの形を絶対に変えないルール**
+
+**vocabulary.jsonのwordフィールドに記載された英単語を、データベースに登録されている形のまま使用すること。時制・語形・接辞の追加は一切禁止。**
+
+#### 絶対禁止事項：
+
+1. **時制変化の禁止**
+   - ❌ DB: `abandon` → 文中で `abandoned` / `abandons` / `abandoning` に変えない
+   - ❌ DB: `abhor` → 文中で `abhors` / `abhorred` / `abhorring` に変えない
+   - ❌ DB: `abolish` → 文中で `abolished` / `abolishes` に変えない
+
+2. **接頭辞・接尾辞の追加禁止**
+   - ❌ DB: `abashed` → 文中で `unabashed` に変えない
+   - ❌ DB: `abash` → 文中で `abashed` に変えない
+
+3. **単複変化の禁止**
+   - ❌ DB: `aberration` → 文中で `aberrations` に変えない
+   - ❌ DB: `ability` → 文中で `abilities` に変えない
+
+4. **品詞変化の禁止**
+   - ❌ DB: `abandon`（動詞） → 文中で `abandonment`（名詞）に変えない
+   - ❌ DB: `quick`（形容詞） → 文中で `quickly`（副詞）に変えない
+
+#### 正しい使い方（DBの形を厳守）：
+
+- DB: `word: "abandon"` → 文: `Never <u>abandon</u> your dreams.` ✅
+- DB: `word: "abandoned"` → 文: `The <u>abandoned</u> house was haunted.` ✅
+- DB: `word: "abash"` → 文: `Don't let them <u>abash</u> you.` ✅
+- DB: `word: "abhor"` → 文: `I <u>abhor</u> violence.` ✅
+
+#### 重要な理解：
+
+vocabulary.jsonには派生形が**それぞれ独立したエントリ**として登録されている：
+- `abandon`（動詞）← id=2用の問題
+- `abandoned`（形容詞）← id=3用の問題
+- `abandonment`（名詞）← id=4用の問題
+
+**各エントリは独立している。他のエントリの形を借用してはならない。**
+
+#### 下線の付け方：
+
+- ✅ `<u>abandoned</u>` ← 単語全体に下線
+- ❌ `<u>abandon</u>ed` ← 一部だけ下線（禁止）
+- ❌ `un<u>abashed</u>` ← 接頭辞除外（禁止）
 
 ### 1. 英文例文（sentence_en）
 
@@ -40,7 +85,7 @@ word,pattern_number,sentence_en,sentence_ja,choice_1,choice_2,choice_3,choice_4,
   - 1000-3000台: 7-10語（簡単な文）
   - 4000-6000台: 10-12語（中程度）
   - 7000-9000台: 12-15語（やや長め）
-- **該当単語**: `<u>単語</u>` で囲む
+- **該当単語**: `<u>単語</u>` で囲む **（wordフィールドと完全一致させる）**
 - **自然さ**: ネイティブが実際に使う表現を優先
 - **文脈**: その単語の意味が明確に伝わる状況設定
 
@@ -64,6 +109,11 @@ word,pattern_number,sentence_en,sentence_ja,choice_1,choice_2,choice_3,choice_4,
 3. **高校生が参考書で見る自然な訳に近づける**
    - 機械翻訳感を排除
    - 日本語として読んで違和感がないか必ずチェック
+
+4. **形容詞・分詞の訳は文脈に応じて自然に**
+   - 建物・場所・無生物には「廃〜」「放棄された」など物理的表現
+   - 人・動物・感情には「見捨てられた」「捨てられた」など感情的表現
+   - 一つの訳語に固執せず、対象の性質に合わせて使い分ける
 
 ### 3. 選択肢設計（choice_1 ~ choice_4）
 
@@ -176,9 +226,9 @@ transformation, culture, moral, emergency, environment
 4. **出題傾向調整に使える意味的な分類**
    - 例: `science, environment, formal, action` → 環境科学系の文章で使われる動詞
 
-5. **カンマ区切り、セミコロン不使用**
-   - ✅ `action,emergency,movement,formal`
-   - ❌ `action; emergency; movement; formal`
+5. **セミコロン区切り**
+   - ✅ `action;emergency;movement;formal`
+   - ❌ `action,emergency,movement,formal` ← カンマは使用禁止
 
 ### 6. 使用場面（usage_scene）
 
@@ -211,7 +261,7 @@ word : sentence_en(タグ除去) / sentence_ja / 正解: correct_choice / tags: 
 #### 例:
 
 ```
-abandon : The crew had to abandon the sinking ship immediately. / 乗組員は沈没する船をすぐに放棄しなければならなかった。 / 正解: 放棄する / tags: action,emergency,movement,formal / scene: emergency situation at sea
+abandon : The crew had to abandon the sinking ship immediately. / 乗組員は沈没する船をすぐに放棄しなければならなかった。 / 正解: 放棄する / tags: action;emergency;movement;formal / scene: emergency situation at sea
 ```
 
 #### ルール:
@@ -262,7 +312,7 @@ abandon : The crew had to abandon the sinking ship immediately. / 乗組員は�
 
 ```csv
 word,pattern_number,sentence_en,sentence_ja,choice_1,choice_2,choice_3,choice_4,correct_choice_index,feedback_1,feedback_2,feedback_3,feedback_4,tags,usage_scene,embedding_text
-abandon,1,"The crew had to <u>abandon</u> the sinking ship immediately.",乗組員は沈没する船をすぐに放棄しなければならなかった。,放棄する,固定する,修理する,調査する,1,"「放棄する」が正解です。abandonは「危険や困難な状況で何かを諦めて去る」という意味で、沈没船という緊急事態に最適です。共通テストや模試では、abandonは「危険だから捨てる」イメージでよく出ます。","「固定する」はsecure/fastenで、船を安定させる行為。abandonとは逆の行動です。","「修理する」はrepairで、船を直す行為。しかしimmediately（すぐに）という緊急性と矛盾します。","「調査する」はinvestigate/inspectで、状況を調べる行為。沈没中の船では命を守ることが優先されます。","action,emergency,movement,formal","emergency situation at sea","abandon : The crew had to abandon the sinking ship immediately. / 乗組員は沈没する船をすぐに放棄しなければならなかった。 / 正解: 放棄する / tags: action,emergency,movement,formal / scene: emergency situation at sea"
+abandon,1,"The crew had to <u>abandon</u> the sinking ship immediately.",乗組員は沈没する船をすぐに放棄しなければならなかった。,放棄する,固定する,修理する,調査する,1,"「放棄する」が正解です。abandonは「危険や困難な状況で何かを諦めて去る」という意味で、沈没船という緊急事態に最適です。共通テストや模試では、abandonは「危険だから捨てる」イメージでよく出ます。","「固定する」はsecure/fastenで、船を安定させる行為。abandonとは逆の行動です。","「修理する」はrepairで、船を直す行為。しかしimmediately（すぐに）という緊急性と矛盾します。","「調査する」はinvestigate/inspectで、状況を調べる行為。沈没中の船では命を守ることが優先されます。","action;emergency;movement;formal","emergency situation at sea","abandon : The crew had to abandon the sinking ship immediately. / 乗組員は沈没する船をすぐに放棄しなければならなかった。 / 正解: 放棄する / tags: action;emergency;movement;formal / scene: emergency situation at sea"
 ```
 
 ## 📝 品質チェックリスト
