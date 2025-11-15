@@ -134,7 +134,7 @@ export default function AppHome() {
                     </div>
                     <Button
                       variant="outline"
-                      onClick={() => router.push("/initial-test")}
+                      onClick={() => router.push("/app/initial-test")}
                       className="text-emerald-600"
                     >
                       初回テストを受ける
