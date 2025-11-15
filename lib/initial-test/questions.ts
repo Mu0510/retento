@@ -52,28 +52,34 @@ const CHOICE_FIELDS: Array<keyof InitialTestQuestionRecord> = [
 ];
 
 function buildChoices(record: InitialTestQuestionRecord): InitialTestChoicePayload[] {
-  const baseChoices: InitialTestChoicePayload[] = [
+  const normalizedCorrect = record.correct_answer.trim();
+  const choices: InitialTestChoicePayload[] = [
     {
       id: `${record.id}-correct`,
-      label: record.correct_answer,
+      label: normalizedCorrect,
       isCorrect: true,
       feedback: null,
     },
   ];
 
-  CHOICE_FIELDS.forEach((field, index) => {
-    const label = record[field];
-    if (!label) return;
+  const seenLabels = new Set<string>([normalizedCorrect]);
+  for (let index = 0; index < CHOICE_FIELDS.length && choices.length < 4; index += 1) {
+    const field = CHOICE_FIELDS[index];
+    const rawLabel = record[field];
+    if (!rawLabel) continue;
+    const trimmedLabel = rawLabel.trim();
+    if (!trimmedLabel || seenLabels.has(trimmedLabel)) continue;
+    seenLabels.add(trimmedLabel);
     const feedbackField = (`feedback_for_choice_${index + 1}` as keyof InitialTestQuestionRecord);
-    baseChoices.push({
+    choices.push({
       id: `${record.id}-choice-${index}`,
-      label,
+      label: trimmedLabel,
       isCorrect: false,
       feedback: record[feedbackField] ?? null,
     });
-  });
+  }
 
-  return shuffleArray(baseChoices);
+  return shuffleArray(choices);
 }
 
 function shuffleArray<T>(items: T[]): T[] {

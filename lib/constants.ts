@@ -22,7 +22,7 @@ export const DIFFICULTY_RANGE = {
 
 export const CONFIDENCE_TO_MASTERY: Record<string, number> = {
   none: 0,
-  forget: 0.15,
-  iffy: 0.55,
+  forget: 0,
+  iffy: 0.5,
   perfect: 1,
 };

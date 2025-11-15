@@ -78,7 +78,37 @@ function InitialTestPageContent() {
   const dragStartRef = useRef({ x: 0, y: 0 });
   const [isSessionComplete, setIsSessionComplete] = useState(false);
   const [completion, setCompletion] = useState<CompletionState | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
+  const [isSavingScore, setIsSavingScore] = useState(false);
+
+  const submitFinalResult = useCallback(
+    async (finalAnswers: InitialTestAnswerPayload[], finalScore: number) => {
+      if (submittingRef.current) return;
+      submittingRef.current = true;
+      try {
+        const response = await fetch("/api/initial-test/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ answers: finalAnswers, finalScore }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.error ?? "結果の保存に失敗しました");
+        }
+        setCompletion({
+          initialScore: payload.initialScore,
+          calculatedWordScore: payload.calculatedWordScore,
+          autoWordMarks: payload.autoWordMarks ?? [],
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "送信中にエラーが発生しました");
+      } finally {
+        submittingRef.current = false;
+      }
+    },
+    [],
+  );
 
   const loadInitialTest = useCallback(async () => {
     setIsLoading(true);
@@ -130,6 +160,8 @@ function InitialTestPageContent() {
 
       if (resumedIds.length >= TOTAL_QUESTIONS) {
         setIsSessionComplete(true);
+        setCurrentQuestion(null);
+        void submitFinalResult(resumedAnswers, resumedEstimate);
         return;
       }
 
@@ -139,6 +171,45 @@ function InitialTestPageContent() {
       setError(err instanceof Error ? err.message : "初回テストの開始に失敗しました");
     } finally {
       setIsLoading(false);
+    }
+  }, [submitFinalResult]);
+
+  const handleRetake = useCallback(async () => {
+    setError(null);
+    setIsLoading(true);
+    setIsSessionComplete(false);
+    try {
+      const response = await fetch("/api/initial-test/reset", { method: "POST" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "初回テストをリセットできませんでした");
+      }
+      await loadInitialTest();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "テストリセット中にエラーが発生しました");
+      setIsLoading(false);
+      setIsSessionComplete(true);
+    }
+  }, [loadInitialTest]);
+
+  const handleSaveScore = useCallback(async () => {
+    setIsSavingScore(true);
+    setSaveFeedback(null);
+    try {
+      const response = await fetch("/api/user/recalculate-score", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "再計算に失敗しました");
+      }
+      const scoreAfter = typeof payload.scoreAfter === "number" ? payload.scoreAfter.toFixed(2) : "完了";
+      setSaveFeedback(`スコアを保存しました（${scoreAfter}）`);
+    } catch (err) {
+      setSaveFeedback(err instanceof Error ? err.message : "保存に失敗しました");
+    } finally {
+      setIsSavingScore(false);
     }
   }, []);
 
@@ -160,35 +231,6 @@ function InitialTestPageContent() {
     },
     [],
   );
-
-  const submitFinalResult = useCallback(
-    async (finalAnswers: InitialTestAnswerPayload[], finalScore: number) => {
-      if (isSubmitting) return;
-      setIsSubmitting(true);
-      try {
-        const response = await fetch("/api/initial-test/submit", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ answers: finalAnswers, finalScore }),
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(payload?.error ?? "結果の保存に失敗しました");
-        }
-        setCompletion({
-          initialScore: payload.initialScore,
-          calculatedWordScore: payload.calculatedWordScore,
-          autoWordMarks: payload.autoWordMarks ?? [],
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "送信中にエラーが発生しました");
-      } finally {
-        setIsSubmitting(false);
-      }
-    },
-    [isSubmitting],
-  );
-
   const processConfidence = useCallback(
     (confidence: ConfidenceLevel, question: InitialTestQuestionPayload, choiceId: string) => {
       const questionNumber = answers.length + 1;
@@ -384,14 +426,40 @@ function InitialTestPageContent() {
         <Card className="w-full max-w-xl border border-gray-200 bg-white shadow-2xl">
           <div className="space-y-6 p-8">
             <h1 className="text-2xl font-semibold text-gray-900">初回レベルテスト完了</h1>
+            {error && (
+              <div className="rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                {error}
+              </div>
+            )}
             <div className="space-y-2 text-sm text-gray-600">
               <p>推定スコア: {completion.initialScore.toFixed(2)}</p>
               <p>算出された単語力スコア: {completion.calculatedWordScore.toFixed(2)}</p>
               <p>自動マーク: 完璧 {perfectCount} / 微妙 {microCount}</p>
             </div>
+            {saveFeedback && (
+              <p className="text-xs text-gray-500">{saveFeedback}</p>
+            )}
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button className="flex-1" onClick={() => router.push("/app")}>アプリを開く</Button>
               <Button variant="outline" className="flex-1" onClick={() => router.push("/")}>ランディング</Button>
+              <Button variant="ghost" className="flex-1" onClick={handleRetake} disabled={isLoading}>
+                初回テストをやり直す
+              </Button>
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={handleSaveScore}
+                disabled={isSavingScore}
+              >
+                {isSavingScore ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    保存中…
+                  </span>
+                ) : (
+                  "保存します"
+                )}
+              </Button>
             </div>
           </div>
         </Card>

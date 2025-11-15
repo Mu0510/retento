@@ -146,16 +146,33 @@ export async function registerAuthMethod(input: AuthMethodInput): Promise<void> 
 
 export async function fetchConfidenceSnapshot(userId: string): Promise<ConfidenceSnapshot> {
   const profile = await ensureUserProfile(userId);
-  const { data, error } = await supabaseAdminClient
-    .from(USER_WORD_CONFIDENCE_TABLE)
-    .select("user_id, word_id, confidence, times_answered, next_review_at, last_answered_at")
-    .eq("user_id", userId);
+  const PAGE_SIZE = 1000;
+  const rows: UserWordConfidenceRow[] = [];
+  let from = 0;
 
-  if (error) {
-    throw new Error(`failed to load confidence snapshot: ${error.message}`);
+  while (true) {
+    const to = from + PAGE_SIZE - 1;
+    const { data, error } = await supabaseAdminClient
+      .from(USER_WORD_CONFIDENCE_TABLE)
+      .select("user_id, word_id, confidence, times_answered, next_review_at, last_answered_at, auto_marked")
+      .eq("user_id", userId)
+      .range(from, to);
+
+    if (error) {
+      throw new Error(`failed to load confidence snapshot: ${error.message}`);
+    }
+
+    const batch = (data as UserWordConfidenceRow[]) ?? [];
+    rows.push(...batch);
+
+    if (batch.length < PAGE_SIZE) {
+      break;
+    }
+
+    from += PAGE_SIZE;
   }
 
-  return { profile, rows: (data as UserWordConfidenceRow[]) ?? [] };
+  return { profile, rows };
 }
 
 export async function fetchConfidenceRowsForWords(
@@ -163,17 +180,27 @@ export async function fetchConfidenceRowsForWords(
   wordIds: number[],
 ): Promise<UserWordConfidenceRow[]> {
   if (!wordIds.length) return [];
-  const { data, error } = await supabaseAdminClient
-    .from(USER_WORD_CONFIDENCE_TABLE)
-    .select("word_id, confidence, auto_marked")
-    .eq("user_id", userId)
-    .in("word_id", wordIds);
+  const MAX_WORD_IDS_PER_QUERY = 256;
+  const batches = chunkArray(wordIds, MAX_WORD_IDS_PER_QUERY);
+  const rows: UserWordConfidenceRow[] = [];
 
-  if (error) {
-    throw new Error(`failed to load confidence rows: ${error.message}`);
+  for (const batch of batches) {
+    const { data, error } = await supabaseAdminClient
+      .from(USER_WORD_CONFIDENCE_TABLE)
+      .select(
+        "word_id, confidence, times_answered, next_review_at, last_answered_at, auto_marked",
+      )
+      .eq("user_id", userId)
+      .in("word_id", batch);
+
+    if (error) {
+      throw new Error(`failed to load confidence rows: ${error.message}`);
+    }
+
+    rows.push(...((data ?? []) as UserWordConfidenceRow[]));
   }
 
-  return (data as UserWordConfidenceRow[]) ?? [];
+  return rows;
 }
 
 export function calculateUserScore(rows: UserWordConfidenceRow[]): number {
@@ -258,21 +285,50 @@ export async function getSeenWordIds(userId: string): Promise<Set<number>> {
 
 export async function upsertConfidenceRows(rows: UserWordConfidenceRow[]): Promise<void> {
   if (!rows.length) return;
-  const payload = rows.map((row) => ({
+  const normalized = rows.map((row) => ({
     user_id: row.user_id,
     word_id: row.word_id,
     confidence: row.confidence,
-    times_answered: row.times_answered ?? null,
+    times_answered:
+      typeof row.times_answered === "number" ? Math.max(0, Math.floor(row.times_answered)) : 0,
     next_review_at: row.next_review_at ?? null,
     last_answered_at: row.last_answered_at ?? new Date().toISOString(),
     auto_marked: row.auto_marked ?? false,
   }));
 
+  const MAX_BATCH_SIZE = 250;
+  const batches = chunkArray(normalized, MAX_BATCH_SIZE);
+
+  for (const batch of batches) {
+    const { error } = await supabaseAdminClient
+      .from(USER_WORD_CONFIDENCE_TABLE)
+      .upsert(batch, { onConflict: "user_id,word_id" });
+
+    if (error) {
+      throw new Error(`failed to upsert confidence rows: ${error.message}`);
+    }
+  }
+}
+
+export async function deleteAutoMarkedConfidenceRows(userId: string): Promise<void> {
   const { error } = await supabaseAdminClient
     .from(USER_WORD_CONFIDENCE_TABLE)
-    .upsert(payload, { onConflict: "user_id,word_id" });
+    .delete()
+    .eq("user_id", userId)
+    .eq("auto_marked", true);
 
   if (error) {
-    throw new Error(`failed to upsert confidence rows: ${error.message}`);
+    throw new Error(`failed to delete auto-marked rows: ${error.message}`);
   }
+}
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  if (size <= 0) {
+    throw new Error("chunk size must be greater than 0");
+  }
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
 }

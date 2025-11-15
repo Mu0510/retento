@@ -1,10 +1,11 @@
 import { supabaseAdminClient } from "@/lib/supabase-admin";
-import { CONFIDENCE_TO_MASTERY, MAX_USER_SCORE } from "@/lib/constants";
-import { getInitialTestQuestionPool } from "@/lib/initial-test/questions";
+import { CONFIDENCE_TO_MASTERY, MAX_USER_SCORE, TOTAL_DIFFICULTY_SCORE } from "@/lib/constants";
+import { getVocabularyList } from "@/lib/vocabulary-data";
 import {
   StoredConfidenceLevel,
   UserWordConfidenceRow,
   fetchConfidenceRowsForWords,
+  fetchConfidenceSnapshot,
   ensurePublicUser,
   upsertConfidenceRows,
   upsertUserScore,
@@ -120,6 +121,13 @@ export async function deleteInitialTestProgress(userId: string): Promise<void> {
   }
 }
 
+export async function deleteInitialTestResult(userId: string): Promise<void> {
+  const { error } = await supabaseAdminClient.from(RESULT_TABLE).delete().eq("user_id", userId);
+  if (error) {
+    throw new Error(`failed to delete initial test result: ${error.message}`);
+  }
+}
+
 export async function persistInitialTestResult(
   userId: string,
   finalScore: number,
@@ -136,50 +144,111 @@ export async function persistInitialTestResult(
 
   const latestAnswers = dedupeAnswersByWord(answers);
   const answeredWordIds = new Set(latestAnswers.map((item) => item.wordId));
-  const answeredScore = latestAnswers.reduce((sum, item) => {
-    const mastery = CONFIDENCE_TO_MASTERY[item.confidence] ?? 0;
-    return sum + (item.difficultyScore ?? 0) * mastery;
-  }, 0);
-
-  const { autoWordMarks, finalScore: calculatedWordScore } = buildAutoWordMarks(
-    sanitizedScore,
-    answeredWordIds,
-    answeredScore,
+  const existingAnswerRows = await fetchConfidenceRowsForWords(userId, Array.from(answeredWordIds));
+  const answeredRowMap = new Map(existingAnswerRows.map((row) => [row.word_id, row]));
+  const vocabularyEntries = getVocabularyList().filter(
+    (entry): entry is { id: number; difficulty_score: number } =>
+      typeof entry.id === "number" && typeof entry.difficulty_score === "number",
   );
-
-  const confidenceRows: UserWordConfidenceRow[] = [];
+  const vocabularyById = new Map(vocabularyEntries.map((entry) => [entry.id, entry.difficulty_score]));
+  const answerRows: UserWordConfidenceRow[] = [];
   const answeredTimestamp = now;
   latestAnswers.forEach((item) => {
-    confidenceRows.push({
+    const existingAnswerRow = answeredRowMap.get(item.wordId);
+    const priorTimes = typeof existingAnswerRow?.times_answered === "number" ? existingAnswerRow.times_answered : 0;
+    answerRows.push({
       user_id: userId,
       word_id: item.wordId,
       confidence: item.confidence,
       last_answered_at: item.timestamp ?? answeredTimestamp,
       auto_marked: false,
+      times_answered: priorTimes + 1,
     });
   });
 
-  const autoWordIds = autoWordMarks.map((mark) => mark.wordId);
-  const existingAutoRows = await fetchConfidenceRowsForWords(userId, autoWordIds);
-  const existingAutoMap = new Map(existingAutoRows.map((row) => [row.word_id, row]));
+  if (answerRows.length) {
+    await upsertConfidenceRows(answerRows);
+  }
 
-  autoWordMarks.forEach((mark) => {
-    const existing = existingAutoMap.get(mark.wordId);
-    if (existing && existing.auto_marked === false) {
-      return;
-    }
-    confidenceRows.push({
+  const snapshot = await fetchConfidenceSnapshot(userId);
+  const rowsMap = new Map(snapshot.rows.map((row) => [row.word_id, row]));
+
+  const masteryFor = (confidence: StoredConfidenceLevel | null | undefined) =>
+    CONFIDENCE_TO_MASTERY[confidence ?? "none"] ?? 0;
+
+  let contribution = snapshot.rows.reduce((sum, row) => {
+    const difficulty = vocabularyById.get(row.word_id) ?? 0;
+    return sum + difficulty * masteryFor(row.confidence);
+  }, 0);
+  const convertContributionToScore = (value: number) => {
+    if (TOTAL_DIFFICULTY_SCORE <= 0) return 0;
+    const normalized = (value / TOTAL_DIFFICULTY_SCORE) * MAX_USER_SCORE;
+    return clampScore(Number(normalized.toFixed(2)));
+  };
+
+  let currentScore = convertContributionToScore(contribution);
+  const targetScore = sanitizedScore;
+  const perfectThreshold = targetScore * 0.9;
+  const autoWordMarks: AutoWordMark[] = [];
+  const autoRows: UserWordConfidenceRow[] = [];
+  const seenWordIds = new Set<number>(rowsMap.keys());
+
+  const perfectCandidates = vocabularyEntries
+    .filter((entry) => entry.difficulty_score <= perfectThreshold && !seenWordIds.has(entry.id))
+    .sort((a, b) => a.difficulty_score - b.difficulty_score);
+
+  for (const entry of perfectCandidates) {
+    const row: UserWordConfidenceRow = {
       user_id: userId,
-      word_id: mark.wordId,
-      confidence: mark.confidence,
+      word_id: entry.id,
+      confidence: "perfect",
       last_answered_at: now,
       auto_marked: true,
-    });
-  });
-
-  if (confidenceRows.length) {
-    await upsertConfidenceRows(confidenceRows);
+      times_answered: 0,
+    };
+    rowsMap.set(entry.id, row);
+    autoRows.push(row);
+    autoWordMarks.push({ wordId: entry.id, confidence: "perfect" });
+    seenWordIds.add(entry.id);
+    contribution += entry.difficulty_score * (CONFIDENCE_TO_MASTERY.perfect ?? 1);
+    currentScore = convertContributionToScore(contribution);
   }
+
+  const remainingCandidates = vocabularyEntries
+    .filter((entry) => entry.difficulty_score > perfectThreshold && !seenWordIds.has(entry.id))
+    .sort((a, b) => a.difficulty_score - b.difficulty_score);
+
+  for (const entry of remainingCandidates) {
+    const mastery = CONFIDENCE_TO_MASTERY.iffy ?? 0.55;
+    const addition = entry.difficulty_score * mastery;
+    const tentativeContribution = contribution + addition;
+    const tentativeScore = convertContributionToScore(tentativeContribution);
+    const diffBefore = Math.abs(currentScore - targetScore);
+    const diffAfter = Math.abs(tentativeScore - targetScore);
+    if (diffAfter > diffBefore || (diffAfter === diffBefore && tentativeScore > targetScore)) {
+      break;
+    }
+    const row: UserWordConfidenceRow = {
+      user_id: userId,
+      word_id: entry.id,
+      confidence: "iffy",
+      last_answered_at: now,
+      auto_marked: true,
+      times_answered: 0,
+    };
+    rowsMap.set(entry.id, row);
+    autoRows.push(row);
+    autoWordMarks.push({ wordId: entry.id, confidence: "iffy" });
+    seenWordIds.add(entry.id);
+    contribution = tentativeContribution;
+    currentScore = tentativeScore;
+  }
+
+  if (autoRows.length) {
+    await upsertConfidenceRows(autoRows);
+  }
+
+  const calculatedWordScore = currentScore;
 
   const resultDetails: InitialTestResultDetails = {
     answers,
@@ -225,55 +294,4 @@ function dedupeAnswersByWord(answers: InitialTestAnswerPayload[]): InitialTestAn
     map.set(item.wordId, item);
   });
   return Array.from(map.values());
-}
-
-function buildAutoWordMarks(
-  targetScore: number,
-  answeredWordIds: Set<number>,
-  baseScore: number,
-): { autoWordMarks: AutoWordMark[]; finalScore: number } {
-  const normalizedScore = clampScore(targetScore);
-  const pool = getInitialTestQuestionPool().filter((entry) => !answeredWordIds.has(entry.word_id));
-  const perfectThreshold = normalizedScore * 0.8;
-
-  const perfectWords = pool.filter((entry) => entry.difficulty_score <= perfectThreshold);
-  const remaining = pool
-    .filter((entry) => entry.difficulty_score > perfectThreshold)
-    .sort((a, b) => a.difficulty_score - b.difficulty_score);
-
-  let runningScore = baseScore + perfectWords.reduce((sum, entry) => sum + entry.difficulty_score, 0);
-  let bestScore = runningScore;
-  let bestDiff = Math.abs(normalizedScore - runningScore);
-  let bestMicroCount = 0;
-  let microCount = 0;
-  const microContributions: number[] = [];
-
-  for (const entry of remaining) {
-    const increment = entry.difficulty_score * (CONFIDENCE_TO_MASTERY.iffy ?? 0);
-    runningScore += increment;
-    microCount += 1;
-    microContributions.push(increment);
-    const diff = Math.abs(normalizedScore - runningScore);
-
-    if (diff < bestDiff || (diff === bestDiff && runningScore < bestScore)) {
-      bestDiff = diff;
-      bestScore = runningScore;
-      bestMicroCount = microCount;
-    }
-
-    if (runningScore > normalizedScore && diff > bestDiff) {
-      break;
-    }
-  }
-
-  const microWords = remaining.slice(0, bestMicroCount);
-  const autoWordMarks: AutoWordMark[] = [
-    ...perfectWords.map((entry) => ({ wordId: entry.word_id, confidence: "perfect" as const })),
-    ...microWords.map((entry) => ({ wordId: entry.word_id, confidence: "iffy" as const })),
-  ];
-
-  return {
-    autoWordMarks,
-    finalScore: bestScore,
-  };
 }

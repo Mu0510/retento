@@ -8,6 +8,7 @@ import {
   upsertUserScore,
   type UserWordConfidenceRow,
 } from "@/lib/services/user-progress";
+import { getInitialTestResult } from "@/lib/services/initial-test";
 
 interface RecalculateParams {
   userId: string;
@@ -41,6 +42,20 @@ export async function POST(request: NextRequest, context: { params: Promise<Reca
   }
 
   try {
+    const existingInitialTest = await getInitialTestResult(userId);
+    if (existingInitialTest?.test_details?.calculatedWordScore) {
+      const beforeSnapshot = await fetchConfidenceSnapshot(userId);
+      const beforeScore = beforeSnapshot.profile.word_score ?? 0;
+      const scoreAfter = existingInitialTest.test_details.calculatedWordScore;
+      await upsertUserScore(userId, scoreAfter);
+      return NextResponse.json({
+        scoreBefore: beforeScore,
+        scoreAfter,
+        scoreDiff: scoreAfter - beforeScore,
+        source: "initial-test",
+      });
+    }
+
     const snapshot = await fetchConfidenceSnapshot(userId);
     const beforeScore = snapshot.profile.word_score ?? 0;
 
