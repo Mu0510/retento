@@ -1,0 +1,217 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-11-15",
+  "tags": [
+    {
+      "name": "academic",
+      "category": "domain",
+      "description": "学術的な文脈で使われる"
+    },
+    {
+      "name": "action",
+      "category": "nuance",
+      "description": "動作・行為を表す"
+    },
+    {
+      "name": "abstract",
+      "category": "nuance",
+      "description": "抽象的な概念"
+    },
+    {
+      "name": "art",
+      "category": "domain",
+      "description": "芸術関連"
+    },
+    {
+      "name": "biology",
+      "category": "domain",
+      "description": "生物学関連"
+    },
+    {
+      "name": "business",
+      "category": "domain",
+      "description": "ビジネス・商業関連"
+    },
+    {
+      "name": "causation",
+      "category": "nuance",
+      "description": "因果関係を表す"
+    },
+    {
+      "name": "chemistry",
+      "category": "domain",
+      "description": "化学関連"
+    },
+    {
+      "name": "communication",
+      "category": "nuance",
+      "description": "コミュニケーション・伝達"
+    },
+    {
+      "name": "comparison",
+      "category": "nuance",
+      "description": "比較を表す"
+    },
+    {
+      "name": "concrete",
+      "category": "nuance",
+      "description": "具体的な物事"
+    },
+    {
+      "name": "culture",
+      "category": "domain",
+      "description": "文化関連"
+    },
+    {
+      "name": "daily_life",
+      "category": "domain",
+      "description": "日常生活"
+    },
+    {
+      "name": "description",
+      "category": "nuance",
+      "description": "描写・説明"
+    },
+    {
+      "name": "education",
+      "category": "domain",
+      "description": "教育関連"
+    },
+    {
+      "name": "emergency",
+      "category": "nuance",
+      "description": "緊急事態"
+    },
+    {
+      "name": "emotion_negative",
+      "category": "nuance",
+      "description": "否定的な感情"
+    },
+    {
+      "name": "emotion_positive",
+      "category": "nuance",
+      "description": "肯定的な感情"
+    },
+    {
+      "name": "environment",
+      "category": "domain",
+      "description": "環境関連"
+    },
+    {
+      "name": "formal",
+      "category": "nuance",
+      "description": "フォーマルな表現"
+    },
+    {
+      "name": "informal",
+      "category": "nuance",
+      "description": "インフォーマルな表現"
+    },
+    {
+      "name": "law",
+      "category": "domain",
+      "description": "法律関連"
+    },
+    {
+      "name": "literature",
+      "category": "domain",
+      "description": "文学関連"
+    },
+    {
+      "name": "medicine",
+      "category": "domain",
+      "description": "医療関連"
+    },
+    {
+      "name": "mental",
+      "category": "nuance",
+      "description": "精神的・心理的"
+    },
+    {
+      "name": "moral",
+      "category": "nuance",
+      "description": "道徳・倫理的"
+    },
+    {
+      "name": "movement",
+      "category": "nuance",
+      "description": "移動・動き"
+    },
+    {
+      "name": "nature",
+      "category": "domain",
+      "description": "自然関連"
+    },
+    {
+      "name": "physical",
+      "category": "nuance",
+      "description": "物理的・身体的"
+    },
+    {
+      "name": "physics",
+      "category": "domain",
+      "description": "物理学関連"
+    },
+    {
+      "name": "politics",
+      "category": "domain",
+      "description": "政治関連"
+    },
+    {
+      "name": "quality",
+      "category": "nuance",
+      "description": "性質・特性"
+    },
+    {
+      "name": "quantity",
+      "category": "nuance",
+      "description": "量・数"
+    },
+    {
+      "name": "relationship",
+      "category": "nuance",
+      "description": "関係性"
+    },
+    {
+      "name": "science",
+      "category": "domain",
+      "description": "科学全般"
+    },
+    {
+      "name": "social",
+      "category": "nuance",
+      "description": "社会的"
+    },
+    {
+      "name": "sports",
+      "category": "domain",
+      "description": "スポーツ関連"
+    },
+    {
+      "name": "state",
+      "category": "nuance",
+      "description": "状態"
+    },
+    {
+      "name": "technology",
+      "category": "domain",
+      "description": "技術関連"
+    },
+    {
+      "name": "time",
+      "category": "nuance",
+      "description": "時間関連"
+    },
+    {
+      "name": "transformation",
+      "category": "nuance",
+      "description": "変化・変換"
+    }
+  ],
+  "notes": [
+    "新しいタグを追加する際は、category（domain/nuance）を明記すること",
+    "domain: 分野・領域を表すタグ",
+    "nuance: ニュアンス・性質を表すタグ",
+    "各問題には「分野2-3個 + ニュアンス2-3個」を推奨"
+  ]
+}
