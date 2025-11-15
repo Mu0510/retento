@@ -1,0 +1,19 @@
+{
+  "version": "1.0.0",
+  "total_words": 9000,
+  "total_generated": 10,
+  "current_pattern": 1,
+  "last_word": "abhorrence",
+  "last_word_id": 11,
+  "last_updated": "2025-11-15T10:49:46.341343Z",
+  "batches": [
+    {
+      "batch_id": 1,
+      "timestamp": "2025-11-15T10:49:46.341372Z",
+      "words_generated": 10,
+      "start_word": "abandon",
+      "end_word": "abhorrence",
+      "pattern_number": 1
+    }
+  ]
+}
