@@ -7,7 +7,7 @@ import { ArrowLeft, Loader2, RefreshCcw, CheckCircle2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { SessionPlanResponse } from "@/lib/session-builder";
-import type { QuestionConversation, SessionChoice, SessionQuestion } from "@/types/questions";
+import type { SessionChoice, SessionQuestion } from "@/types/questions";
 import SessionResult from "@/components/SessionResult";
 
 const ACCENT = "#c2255d";
@@ -34,7 +34,6 @@ function SessionPageContent() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [plan, setPlan] = useState<SessionPlanResponse | null>(null);
   const [questions, setQuestions] = useState<SessionQuestion[]>([]);
-  const [conversation, setConversation] = useState<QuestionConversation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -42,9 +41,6 @@ function SessionPageContent() {
   const [confidenceMap, setConfidenceMap] = useState<Record<number, ConfidenceLevel>>({});
   const [completedCount, setCompletedCount] = useState(0);
   const [isSessionComplete, setIsSessionComplete] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [feedbackLoading, setFeedbackLoading] = useState(false);
-  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [scoreBefore, setScoreBefore] = useState<number>(0);
   const [scoreAfter, setScoreAfter] = useState<number>(0);
   const [scoreDiff, setScoreDiff] = useState(0);
@@ -52,7 +48,7 @@ function SessionPageContent() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const dragStartRef = useRef({ x: 0, y: 0 });
-  const feedbackRequestedRef = useRef(false);
+  const submissionRequestedRef = useRef(false);
 
   useEffect(() => {
     const existing = searchParams.get("session");
@@ -75,12 +71,8 @@ function SessionPageContent() {
     setConfidenceMap({});
     setCompletedCount(0);
     setQuestions([]);
-    setConversation(null);
     setIsSessionComplete(false);
-    setFeedback(null);
-    setFeedbackError(null);
-    setFeedbackLoading(false);
-    feedbackRequestedRef.current = false;
+    submissionRequestedRef.current = false;
     try {
       const res = await fetch("/api/sessions/start", {
         method: "POST",
@@ -117,7 +109,6 @@ function SessionPageContent() {
       setScoreAfter(planScore);
       setScoreDiff(0);
       setQuestions(questions);
-      setConversation(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "予期せぬエラーが発生しました");
     } finally {
@@ -139,8 +130,7 @@ function SessionPageContent() {
 
   const handleRestart = useCallback(() => {
     setIsSessionComplete(false);
-    setFeedback(null);
-    feedbackRequestedRef.current = false;
+    submissionRequestedRef.current = false;
     setScoreBefore(0);
     setScoreAfter(0);
     setScoreDiff(0);
@@ -156,15 +146,13 @@ function SessionPageContent() {
     if (!isSessionComplete || !questions.length) {
       return;
     }
-    if (feedbackRequestedRef.current) {
+    if (submissionRequestedRef.current) {
       return;
     }
     if (!feedbackResults.length) {
       return;
     }
-    feedbackRequestedRef.current = true;
-    setFeedbackLoading(true);
-    setFeedbackError(null);
+    submissionRequestedRef.current = true;
     void (async () => {
       try {
         const submitResponse = await fetch("/api/sessions/answers", {
@@ -191,27 +179,10 @@ function SessionPageContent() {
         setScoreDiff(submitData.scoreDiff);
       } catch (err) {
         setScoreDiff(0);
-        setFeedback(err instanceof Error ? err.message : "スコア更新に失敗しました");
-      }
-
-      try {
-        const response = await fetch("/api/sessions/feedback", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ conversation, results: feedbackResults }),
-        });
-        if (!response.ok) {
-          throw new Error("フィードバック生成に失敗しました");
-        }
-        const data = (await response.json()) as { feedback?: string };
-        setFeedback(data.feedback ?? null);
-      } catch (err) {
-        setFeedbackError(err instanceof Error ? err.message : "フィードバック生成中にエラーが発生しました");
-      } finally {
-        setFeedbackLoading(false);
+        console.error("[SessionPage] score update failed:", err);
       }
     })();
-  }, [conversation, feedbackResults, isSessionComplete, questions.length]);
+  }, [feedbackResults, isSessionComplete, questions.length]);
 
   const currentQuestion = questions[currentIndex];
   const progress = questions.length ? (currentIndex + 1) / questions.length : 0;
@@ -387,18 +358,15 @@ function SessionPageContent() {
   }));
 
   if (isSessionComplete) {
-    return (
-      <SessionResult
-        feedback={feedback ?? null}
-        feedbackLoading={feedbackLoading}
-        feedbackError={feedbackError}
-        scoreBefore={scoreBefore}
-        scoreAfter={scoreAfter}
-        scoreDiff={scoreDiff}
-        results={sessionResults}
-        onClose={() => router.push("/")}
-        onNextSession={handleRestart}
-      />
+      return (
+        <SessionResult
+          scoreBefore={scoreBefore}
+          scoreAfter={scoreAfter}
+          scoreDiff={scoreDiff}
+          results={sessionResults}
+          onClose={() => router.push("/")}
+          onNextSession={handleRestart}
+        />
     );
   }
 

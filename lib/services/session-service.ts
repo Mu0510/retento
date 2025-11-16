@@ -1,6 +1,6 @@
 import type { SessionPlanResponse } from "@/lib/session-builder";
 import type { SessionQuestion } from "@/types/questions";
-import { buildFallbackQuestions, generateQuestionsForWords } from "@/lib/question-generator";
+import { generateQuestionsForWords } from "@/lib/question-generator";
 import {
   calculateUserScore,
   fetchConfidenceSnapshot,
@@ -88,8 +88,8 @@ async function buildSessionArtifacts(
     const { questions: generated } = await generateQuestionsForWords(selection.words);
     questions = generated;
   } catch (error) {
-    console.error("[SessionService] AI generation failed, fallback to stub questions:", error);
-    questions = buildFallbackQuestions(selection.words);
+    console.error("[SessionService] failed to load DB-backed questions:", error);
+    throw error;
   }
 
   const plan: SessionPlanResponse = {

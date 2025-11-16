@@ -6,7 +6,8 @@
     "dev": "next dev -p 4000",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "generator:dev": "next dev -p 4001"
   },
   "dependencies": {
     "@next-auth/supabase-adapter": "^0.2.1",
