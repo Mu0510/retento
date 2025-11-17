@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/generator/backend/supabaseClient";
+import {
+  supabase,
+  fetchLatestGeneratorSession,
+} from "@/generator/backend/supabaseClient";
+import { loadVocabulary } from "@/generator/backend/vocabLoader";
 
 type QuestionRow = {
   id: string | null;
@@ -21,18 +25,23 @@ type DbCheckSummary = {
   questionIdRange: { min: string | null; max: string | null };
 };
 
-type DbCountIssue = {
-  wordId: number | null;
-  word: string;
-  count: number;
-};
-
 type DbTagIssue = {
   id: string | null;
   wordId: number | null;
   word: string;
   sentence: string;
   reason: string;
+};
+
+type DbMissingWordIssue = {
+  wordId: number;
+  word: string;
+  reason: string;
+};
+
+type SessionRange = {
+  startWordId: number;
+  limit: number;
 };
 
 const CHUNK_SIZE = 500;
@@ -44,6 +53,7 @@ export async function GET() {
     const summary = buildSummary(rows);
     const countIssues = buildCountIssues(rows).slice(0, ISSUE_LIMIT);
     const tagIssues = buildTagIssues(rows).slice(0, ISSUE_LIMIT);
+    const missingWordIssues = await buildMissingWordIssues(rows);
 
     return NextResponse.json({
       success: true,
@@ -51,6 +61,7 @@ export async function GET() {
       issues: {
         underCount: countIssues,
         tagIssues,
+        missingWordIds: missingWordIssues,
       },
       timestamp: new Date().toISOString(),
     });
@@ -125,7 +136,9 @@ function collapseWordCounts(rows: QuestionRow[]): WordCountEntry[] {
 }
 
 function buildCountIssues(rows: QuestionRow[]): WordCountEntry[] {
-  return collapseWordCounts(rows).filter((entry) => entry.count < 10).sort((a, b) => a.word.localeCompare(b.word));
+  return collapseWordCounts(rows)
+    .filter((entry) => entry.count < 10)
+    .sort((a, b) => a.word.localeCompare(b.word));
 }
 
 function buildTagIssues(rows: QuestionRow[]): DbTagIssue[] {
@@ -143,6 +156,70 @@ function buildTagIssues(rows: QuestionRow[]): DbTagIssue[] {
     }
   }
   return problems;
+}
+
+async function buildMissingWordIssues(rows: QuestionRow[]): Promise<DbMissingWordIssue[]> {
+  const range = await getExpectedWordRange();
+  if (!range) {
+    return [];
+  }
+
+  const seenWordIds = new Set(
+    rows
+      .map((row) => row.word_id)
+      .filter((value): value is number => typeof value === "number")
+  );
+  const vocabMap = new Map(loadVocabulary().map((entry) => [entry.id, entry.word]));
+  const missing: DbMissingWordIssue[] = [];
+
+  for (
+    let wordId = range.startWordId;
+    wordId < range.startWordId + range.limit && missing.length < ISSUE_LIMIT;
+    wordId += 1
+  ) {
+    if (seenWordIds.has(wordId)) {
+      continue;
+    }
+    missing.push({
+      wordId,
+      word: vocabMap.get(wordId) ?? `word${wordId}`,
+      reason: "この ID の問題がデータベースに存在しません。",
+    });
+  }
+  return missing;
+}
+
+async function getExpectedWordRange(): Promise<SessionRange | null> {
+  const session = await fetchLatestGeneratorSession();
+  if (!session?.session_meta) {
+    return null;
+  }
+  const meta = session.session_meta as Record<string, unknown>;
+  const startWordId =
+    parseNumber(
+      meta.startWordId ?? meta.start_word_id ?? meta.resumeStartWordId ?? meta.resume_start_word_id
+    ) ?? null;
+  const limit =
+    parseNumber(
+      meta.limit ?? meta.sessionLimit ?? meta.resumeSourceLimit ?? meta.limit ?? meta.requestedLimit
+    ) ?? null;
+  if (startWordId === null || limit === null) {
+    return null;
+  }
+  return { startWordId, limit };
+}
+
+function parseNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.max(1, Math.floor(value));
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return Math.max(1, Math.floor(parsed));
+    }
+  }
+  return null;
 }
 
 function validateUnderline(sentence: string | null, word: string | null): string | null {

@@ -102,6 +102,7 @@ export class SessionManager {
             await this.reportProgress(sessionId, entry);
           } catch (error) {
             await logSessionMessage(sessionId, `error for ${entry.word}`, "error", {
+              word_id: entry.id,
               word: entry.word,
               error: (error as Error).message,
               slot,

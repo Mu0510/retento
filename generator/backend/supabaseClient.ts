@@ -15,6 +15,27 @@ export type GeneratorSessionRecord = {
   finished_at: string | null;
 };
 
+export type RegenerationQueueStatus = "pending" | "processing" | "completed" | "failed";
+
+export type RegenerationQueueEntry = {
+  id: string;
+  word_id: number;
+  word: string;
+  reason: string | null;
+  status: RegenerationQueueStatus;
+  session_id: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+  hidden: boolean;
+};
+
+type QueueInsertEntry = {
+  word_id: number;
+  word: string;
+  reason: string;
+};
+
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error("Supabase configuration is missing");
 }
@@ -269,4 +290,105 @@ async function deleteAllRows(table: string) {
 
   const result = await supabase.from(table).delete().in("id", ids);
   return result;
+}
+
+export async function deleteQuestionsForWordIds(wordIds: number[]) {
+  if (!wordIds.length) {
+    return { count: 0 };
+  }
+  const result = await supabase.from("generated_questions").delete().in("word_id", wordIds);
+  if (result.error) {
+    throw result.error;
+  }
+  return result;
+}
+
+export async function insertRegenerationQueueEntries(entries: QueueInsertEntry[]) {
+  if (!entries.length) {
+    return [];
+  }
+  const uniqueWordIds = [...new Set(entries.map((entry) => entry.word_id))];
+  const { data: existing } = await supabase
+    .from("regeneration_queue")
+    .select("word_id, status")
+    .in("word_id", uniqueWordIds);
+  const blockedWordIds = new Set(
+    (existing ?? [])
+      .filter((row) => row.status === "pending" || row.status === "processing")
+      .map((row) => row.word_id)
+  );
+  const filtered = entries.filter((entry) => !blockedWordIds.has(entry.word_id));
+  if (!filtered.length) {
+    return [];
+  }
+  const payload = filtered.map((entry) => ({
+    word_id: entry.word_id,
+    word: entry.word,
+    reason: entry.reason,
+    status: "pending" as RegenerationQueueStatus,
+    hidden: false,
+  }));
+  const result = await supabase.from("regeneration_queue").insert(payload).select("*");
+  if (result.error) {
+    throw result.error;
+  }
+  return (result.data ?? []) as RegenerationQueueEntry[];
+}
+
+export async function fetchRegenerationQueueEntries(
+  statuses?: RegenerationQueueStatus[],
+  limit = 100,
+  includeHidden = false
+) {
+  let query = supabase
+    .from("regeneration_queue")
+    .select("*")
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  if (statuses && statuses.length) {
+    query = query.in("status", statuses);
+  }
+  if (!includeHidden) {
+    query = query.eq("hidden", false);
+  }
+  const result = await query;
+  if (result.error) {
+    throw result.error;
+  }
+  return (result.data ?? []) as RegenerationQueueEntry[];
+}
+
+export async function updateRegenerationQueueEntriesStatus(
+  ids: string[],
+  updates: Partial<{
+    status: RegenerationQueueStatus;
+    session_id: string | null;
+    last_error: string | null;
+  }>
+) {
+  if (!ids.length) {
+    return;
+  }
+  const payload = {
+    ...updates,
+    updated_at: new Date().toISOString(),
+  };
+  const result = await supabase.from("regeneration_queue").update(payload).in("id", ids);
+  if (result.error) {
+    throw result.error;
+  }
+}
+
+export async function hideRegenerationQueueEntries(ids: string[]) {
+  if (!ids.length) {
+    return;
+  }
+  const payload = {
+    hidden: true,
+    updated_at: new Date().toISOString(),
+  };
+  const result = await supabase.from("regeneration_queue").update(payload).in("id", ids);
+  if (result.error) {
+    throw result.error;
+  }
 }
